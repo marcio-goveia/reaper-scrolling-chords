@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>REAPER Scrolling Chords (ChordPro)</title>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<!--
+		Based on X-Raym_Scrolling Chords.html by X-Raym (https://www.extremraym.com), GPL v3.
+		Adds ChordPro support: item notes written in ChordPro are converted to
+		"chords above lyrics" text. Notes in the old plain-text format still work as before.
+	-->
+	<style>
+* {
+	box-sizing: border-box;
+}
+
+body {
+	background: #333333;
+	color: white;
+	font-family: sans-serif;
+}
+
+body:has(#vignette) {
+	background: #000000;
+}
+
+body:has(.lyrics) #vignette {
+	position: fixed;
+	width: 100%;
+	left: 0;
+	top: 0;
+	height: 100%;
+	z-index: 100;
+	background: linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(94,94,94,1) 0%, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,0) 50%, rgba(0,0,0,1) 75%, rgba(0,0,0,1) 100%);
+	opacity: 0;
+	pointer-events: none;
+}
+
+:root {
+	--lyrics-size: 4em; /* set by fitText() in JS, to fit the widest line in the screen */
+	--side-gutter: 16px;
+}
+
+body {
+	margin: 0;
+	-webkit-text-size-adjust: 100%; /* iOS: don't inflate text in landscape */
+}
+
+#text {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 0 var(--side-gutter);
+}
+
+/* half a screen above and below, so the first and last blocks can be centered */
+#text:has(.lyrics) {
+	padding: 50vh var(--side-gutter);
+	padding: 50dvh var(--side-gutter);
+}
+
+/* while measuring, no animation and no wrapping, so the measured sizes are the final ones */
+#text.measuring .lyrics {
+	transition: none !important;
+	white-space: pre !important;
+}
+
+/* lyrics only: nothing to keep aligned, so long lines can wrap instead of shrinking the font */
+.hide-chords .lyrics {
+	white-space: pre-wrap;
+}
+
+.container {
+	text-align: center;
+}
+
+ol, ul, dl {
+	display:inline-block;
+	text-align:left;
+}
+
+#playstate {
+	height: 30px;
+	width: 100%;
+	background: blue;
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	z-index: 200;
+}
+
+body:has(.fullheight) #playstate {
+	display: none;
+}
+
+body:has(.vignette) #playstate {
+	display:none;
+}
+
+a {
+	color: #ea8400;
+}
+
+.lyrics {
+	opacity: 0.5;
+	transition: all ease 0.3s;
+	font-size: var(--lyrics-size);
+	max-width: 100%;
+	overflow-x: auto; /* chords lines never wrap: if even the minimum size doesn't fit, scroll sideways */
+}
+
+.fullheight .lyrics {
+	margin-bottom: 50vh;
+}
+
+.lyrics:hover {
+	cursor: pointer;
+}
+
+.current {
+	opacity: 1;
+	font-size: var(--lyrics-size);
+}
+
+strong {
+	color: red;
+	font-size: 2em;
+}
+
+ul li {
+	color: #ea8400;
+}
+
+ul li:hover {
+	cursor:pointer;
+	text-decoration: underline;
+	text-decoration-color: #ea8400;
+}
+
+ul li:active {
+	text-decoration-color: white;
+	color: white;
+}
+
+/* ---------- ChordPro ---------- */
+
+.cp-line {
+	display: block;
+}
+
+.chord {
+	color: #ea8400;
+	font-weight: bold;
+}
+
+.cp-title {
+	font-weight: bold;
+	font-size: 1.2em;
+}
+
+.cp-subtitle, .cp-meta {
+	opacity: 0.7;
+	font-size: 0.7em;
+}
+
+.cp-comment {
+	font-style: italic;
+	opacity: 0.8;
+}
+
+.cp-comment-box {
+	border: 1px solid currentColor;
+	padding: 0 0.3em;
+}
+
+.cp-chorus {
+	border-left: 0.15em solid #ea8400;
+	padding-left: 0.5em;
+}
+
+.cp-bridge {
+	border-left: 0.15em dashed #888888;
+	padding-left: 0.5em;
+}
+
+/* ---------- Transpose controls (minimal: ⊖ key ⊕) ---------- */
+
+#transpose {
+	position: fixed;
+	top: 10px;
+	right: 12px;
+	z-index: 300;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 4px 12px;
+	border-radius: 999px;
+	background: rgba(20, 20, 20, 0.7);
+	backdrop-filter: blur(6px);
+	color: #8a8a8a;
+	font: 20px sans-serif;
+	user-select: none;
+}
+
+.hide-controls #transpose {
+	display: none;
+}
+
+/* before a song is loaded, only the share button is shown */
+body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
+	display: none;
+}
+
+/* ---------- Share (QR code) ---------- */
+
+#share {
+	position: fixed;
+	inset: 0;
+	z-index: 400;
+	display: grid;
+	place-items: center;
+	padding: 16px;
+	background: rgba(0, 0, 0, 0.75);
+	backdrop-filter: blur(4px);
+	font-family: sans-serif;
+}
+
+#share[hidden] {
+	display: none;
+}
+
+.share-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+	width: min(340px, 100%);
+	max-height: 100%;
+	overflow-y: auto;
+	padding: 20px;
+	border-radius: 16px;
+	background: #1b1b1b;
+	color: #c8c8c8;
+	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.share-card h2 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: normal;
+	color: #ffffff;
+}
+
+#share-qr {
+	width: 100%;
+	max-width: 260px;
+	aspect-ratio: 1;
+	padding: 10px;
+	border-radius: 10px;
+	background: #ffffff; /* QR readers need a light quiet zone */
+}
+
+#share-qr svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.share-modes {
+	display: flex;
+	padding: 3px;
+	border-radius: 999px;
+	background: #111111;
+}
+
+.share-modes button,
+#share-close {
+	border: none;
+	background: transparent;
+	color: #8a8a8a;
+	font: 14px sans-serif;
+	cursor: pointer;
+}
+
+.share-modes button {
+	padding: 6px 14px;
+	border-radius: 999px;
+}
+
+.share-modes button[aria-pressed="true"] {
+	background: #ea8400;
+	color: #000000;
+}
+
+#share-url {
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid #444444;
+	border-radius: 8px;
+	background: #111111;
+	color: #dddddd;
+	font: 13px monospace;
+}
+
+#share-ips {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+}
+
+#share-ips[hidden] {
+	display: none;
+}
+
+#share-ips button {
+	padding: 4px 10px;
+	border: 1px solid #444444;
+	border-radius: 999px;
+	background: transparent;
+	color: #c8c8c8;
+	font: 13px monospace;
+	cursor: pointer;
+}
+
+#share-ips button:hover {
+	color: #ffffff;
+	border-color: #888888;
+}
+
+#share-warning {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.4;
+	color: #ea8400;
+	text-align: center;
+}
+
+#share-close {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 40px;
+	height: 40px;
+	font-size: 26px;
+	line-height: 1;
+}
+
+#share-close:hover {
+	color: #ffffff;
+}
+
+#tr-group {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.hide-chords #tr-group {
+	display: none;
+}
+
+#transpose button {
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	transition: color ease 0.2s, transform ease 0.1s;
+}
+
+#transpose button:hover {
+	color: #ffffff;
+}
+
+#transpose button:active {
+	transform: scale(0.9);
+}
+
+.tr-round {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+}
+
+.tr-round svg {
+	width: 24px;
+	height: 24px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+	stroke-linecap: round;
+}
+
+/* key name; click = back to the original key */
+#transpose #tr-value {
+	min-width: 2.6em;
+	text-align: center;
+	color: #c8c8c8;
+}
+
+.transposed #transpose #tr-value {
+	color: #ea8400;
+}
+
+/* small "+2" at the bottom right of the key when transposed */
+#tr-value[data-offset]::after {
+	content: attr(data-offset);
+	margin-left: 2px;
+	font-size: 0.55em;
+	vertical-align: sub;
+	opacity: 0.8;
+}
+
+#transpose #tr-chords {
+	padding: 3px 10px;
+	border: 1px solid #555555;
+	border-radius: 999px;
+	font-size: 14px;
+}
+
+.hide-chords #transpose #tr-chords {
+	color: #666666;
+	text-decoration: line-through;
+}
+
+/* key menu: all 12 keys from C, opened by clicking the key name */
+#tr-key {
+	position: relative;
+	display: flex;
+}
+
+#tr-menu {
+	position: absolute;
+	top: calc(100% + 10px);
+	left: 50%;
+	transform: translateX(-50%);
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 2px;
+	padding: 6px;
+	border-radius: 12px;
+	background: rgba(20, 20, 20, 0.95);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+	font-size: 17px;
+}
+
+#tr-menu[hidden] {
+	display: none;
+}
+
+#transpose #tr-menu button {
+	position: relative;
+	min-width: 48px;
+	height: 40px;
+	border-radius: 8px;
+	color: #c8c8c8;
+}
+
+#transpose #tr-menu button:hover {
+	background: rgba(255, 255, 255, 0.08);
+	color: #ffffff;
+}
+
+#transpose #tr-menu button.selected {
+	background: #ea8400;
+	color: #000000;
+}
+
+/* dot under the original key */
+#tr-menu button.original::after {
+	content: "";
+	position: absolute;
+	bottom: 4px;
+	left: 50%;
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	background: currentColor;
+	transform: translateX(-50%);
+}
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 600px), (max-height: 500px) {
+	#transpose {
+		top: 6px;
+		right: 6px;
+		gap: 8px;
+		padding: 2px 8px;
+		font-size: 18px;
+	}
+	.tr-round {
+		width: 40px;
+		height: 40px; /* comfortable touch target */
+	}
+	.tr-round svg {
+		width: 26px;
+		height: 26px;
+	}
+	#transpose #tr-value {
+		min-height: 40px;
+	}
+	#playstate {
+		height: 8px;
+	}
+	h1 {
+		font-size: 1.5em;
+	}
+}
+
+	</style>
+</head>
+<body>
+
+<div id="vignette"></div>
+<div id="text">
+	<h1>REAPER Scrolling Chords (ChordPro)</h1>
+	<h2>State</h2>
+	<p><strong>OFF</strong>: Run a companion script to initialize.</p>
+	<h2>Installation</h2>
+	<p>Set this page as REAPER web interface, with menu Options > Preferences > Control/Osc/Web.</p>
+	<h2>Start</h2>
+	<div class="container">
+		<ol>
+			<li>Connect to the web interface using web browser of device on your local network</li>
+			<li>Run the companion script, to push lyrics to the web interface from items notes on the "Lyrics" track.</li>
+		</ol>
+	</div>
+	<h2>Companion Scripts</h2>
+	<div class="container">
+		<ul>
+			<li onclick="wwr_req('_RSa9e8062ab17d8a48a147224a7ce46f89f098e42e')"><span>Item Notes</span>: Convert Lyrics track items notes for scrolling web browser interface.lua</li>
+		</ul>
+	</div>
+</div>
+<div id="playstate"></div>
+<div id="transpose">
+	<span id="tr-group">
+		<button id="tr-down" class="tr-round" type="button" title="Descer meio tom (tecla -)" aria-label="Descer meio tom">
+			<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M7.5 12h9"/></svg>
+		</button>
+		<span id="tr-key">
+			<button id="tr-value" type="button" title="Escolher o tom (tecla 0 volta ao original)" aria-haspopup="listbox" aria-expanded="false">0</button>
+			<span id="tr-menu" role="listbox" hidden></span>
+		</span>
+		<button id="tr-up" class="tr-round" type="button" title="Subir meio tom (tecla +)" aria-label="Subir meio tom">
+			<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M7.5 12h9M12 7.5v9"/></svg>
+		</button>
+	</span>
+	<button id="tr-chords" type="button" title="Mostrar/esconder acordes (tecla C)">Acordes</button>
+	<button id="tr-share" class="tr-round" type="button" title="Compartilhar esta página (QR code)" aria-label="Compartilhar">
+		<svg viewBox="0 0 24 24"><circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="M8.7 10.7l6.6-3.9M8.7 13.3l6.6 3.9"/></svg>
+	</button>
+</div>
+<div id="share" role="dialog" aria-modal="true" aria-labelledby="share-title" hidden>
+	<div class="share-card">
+		<button id="share-close" type="button" aria-label="Fechar">×</button>
+		<h2 id="share-title">Abrir em outro dispositivo</h2>
+		<div id="share-qr"></div>
+		<div class="share-modes" role="group" aria-label="O que mostrar">
+			<button type="button" data-mode="chords" aria-pressed="true">Com acordes</button>
+			<button type="button" data-mode="lyrics" aria-pressed="false">Só letra</button>
+		</div>
+		<input id="share-url" type="url" spellcheck="false" autocomplete="off" aria-label="Endereço compartilhado">
+		<div id="share-ips" hidden><span>Outras redes:</span></div>
+		<p id="share-warning" hidden>Este endereço só funciona neste computador. Rode o script no REAPER para detectar o IP da rede, ou digite-o aqui.</p>
+	</div>
+</div>
+
+<script src="main.js"></script>
+<script src="qrcode.js"></script><!-- qrcode-generator 1.4.4, MIT, Kazuhiko Arase (local copy: works without internet) -->
+<script>
+"use strict";
+
+// ================= Settings / state =================
+
+const searchParams = new URLSearchParams( window.location.search );
+
+const settings = {
+	vignette: searchParams.has( "vignette" ),
+	fullheight: searchParams.has( "fullheight" ),
+	font: searchParams.get( "font" ) ?? "",
+	hideControls: searchParams.has( "hidecontrols" ),
+};
+
+let hideChords = searchParams.has( "nochords" ); // lyrics only, for singers
+let transpose = ( parseInt( searchParams.get( "transpose" ) ) || 0 ) % 12; // semitones
+let useFlats = false;  // decided from the target key
+let songKey = null;
+let song = {};         // JSON sent by the Lua script: { entry: [ { pos_start, pos_end, text } ] }
+let paragraphs = [];
+let firstRun = true;
+
+// ================= Chords =================
+
+// A chord: root + optional accidental + suffix (m, 7, maj7, sus4, add9, (9), °, ...) + optional bass.
+// Used only to decide if an item is ChordPro, so that "[Refrão]" or "[Coro]" alone don't trigger it.
+const CHORD_RE = /^(?:[A-G](?:#|b)?(?:maj|min|dim|aug|sus|add|m|M|[0-9]|[#b+\-°ºø()])*(?:\/[A-G](?:#|b)?)?|N\.?C\.?)$/;
+const CHORD_PARTS_RE = /^([A-G](?:#|b)?)(.*?)(?:\/([A-G](?:#|b)?))?$/;
+const DIRECTIVE_RE = /^\s*\{\s*([A-Za-z_]+)\s*(?::\s*(.*?))?\s*\}\s*$/;
+const BRACKET_RE = /\[([^\]]*)\]/g;
+
+const NOTE_INDEX = { C: 0, "B#": 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, Fb: 4, "E#": 5, F: 5,
+                     "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11, Cb: 11 };
+const SHARPS = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
+const FLATS  = [ "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" ];
+const FLAT_MAJOR_KEYS = [ 5, 10, 3, 8, 1 ];     // F Bb Eb Ab Db
+const FLAT_MINOR_KEYS = [ 2, 7, 0, 5, 10, 3 ];  // Dm Gm Cm Fm Bbm Ebm
+
+const mod12 = n => ( ( n % 12 ) + 12 ) % 12;
+const countChar = ( s, c ) => s.split( c ).length - 1;
+
+const shiftNote = ( note, semitones, flats ) => ( flats ? FLATS : SHARPS )[ mod12( NOTE_INDEX[note] + semitones ) ];
+
+// "(Em)" -> { pre: "(", chord: "Em", post: ")" }. Parentheses mark an optional chord.
+// Parentheses that belong to the chord itself, like Am7(b5), stay in the chord.
+// Returns null if the token is not a chord.
+function splitChordToken( token ) {
+	let [ , pre, chord, post ] = token.match( /^(\(*)(.*?)(\)*)$/ );
+	while( post && countChar( chord, "(" ) > countChar( chord, ")" ) ) {
+		chord += ")";
+		post = post.slice( 1 );
+	}
+	return CHORD_RE.test( chord ) ? { pre, chord, post } : null;
+}
+
+const isChord = token => splitChordToken( token ) !== null;
+
+// By default uses the current transposition; other values are used to list the keys in the menu.
+function transposeChord( token, semitones = transpose, flats = useFlats ) {
+	if( semitones === 0 ) return token;
+	const parts = splitChordToken( token );
+	const m = parts?.chord.match( CHORD_PARTS_RE );
+	if( !m || NOTE_INDEX[ m[1] ] === undefined ) return token; // N.C., etc.
+	const [ , root, suffix, bass ] = m;
+	return parts.pre + shiftNote( root, semitones, flats ) + suffix
+		+ ( bass ? "/" + shiftNote( bass, semitones, flats ) : "" ) + parts.post;
+}
+
+// Sharps or flats, depending on the key we are transposing to.
+function flatsFor( key, semitones ) {
+	const m = key?.match( CHORD_PARTS_RE );
+	if( !m || NOTE_INDEX[ m[1] ] === undefined ) return false;
+	const target = mod12( NOTE_INDEX[ m[1] ] + semitones );
+	const minor = /^m(?!aj)/.test( m[2] );
+	return ( minor ? FLAT_MINOR_KEYS : FLAT_MAJOR_KEYS ).includes( target );
+}
+
+function updateAccidentals( key ) {
+	useFlats = flatsFor( key, transpose );
+}
+
+// Name of the song key transposed by `semitones` ("G" + 2 -> "A").
+const keyAt = semitones => transposeChord( songKey, semitones, flatsFor( songKey, semitones ) );
+
+// ---------- Song key ----------
+
+// All chords of the song, in order: [ "G9", "C9", "Em", ... ] (parentheses removed).
+function collectChords( entries ) {
+	const chords = [];
+	for( const { text } of entries ) {
+		const chordPro = isChordPro( text );
+		for( const line of splitLines( text ) ) {
+			const tokens = chordPro
+				? [ ...line.matchAll( BRACKET_RE ) ].map( m => m[1].trim() )
+				: isPlainChordLine( line ) ? line.match( /\S+/g ) : [];
+			for( const tk of tokens ) {
+				const parts = splitChordToken( tk );
+				if( parts && CHORD_PARTS_RE.test( parts.chord ) ) chords.push( parts.chord );
+			}
+		}
+	}
+	return chords;
+}
+
+// "Am7" -> { root: 9, quality: "min", spelling: "A" }
+function chordInfo( chord ) {
+	const [ , root, suffix ] = chord.match( CHORD_PARTS_RE );
+	let quality = "maj";
+	if( /^(dim|°|º|ø)|^m7?\(?b5/.test( suffix ) ) quality = "dim";
+	else if( /^m(?!aj)|^min/.test( suffix ) ) quality = "min";
+	return { root: NOTE_INDEX[root], quality, spelling: root };
+}
+
+// Chords of a major key, by semitones from the tonic: I ii iii IV V vi vii°
+const MAJOR_SCALE_CHORDS = { 0: "maj", 2: "min", 4: "min", 5: "maj", 7: "maj", 9: "min", 11: "dim" };
+// Common chords from outside the key: bVII (F in G), iv (Cm in G), bVI (Eb in G)
+const BORROWED_CHORDS = { 10: "maj", 5: "min", 8: "maj" };
+const KEY_NAMES_MAJOR = [ "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B" ];
+const KEY_NAMES_MINOR = [ "C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B" ];
+
+// Guesses the key from the chords of the whole song:
+// 1. for each of the 12 major scales, scores how well the chords fit it
+//    (chord of the key: +1, right note but other quality: +0.25, common borrowed chord: +0.3, outside: -0.5),
+//    with a bonus when the song starts or ends on the tonic (I or vi);
+// 2. between the major key and its relative minor (G / Em), picks the one whose tonic chord
+//    shows up more, also counting the first and last chords.
+function detectKey( chords ) {
+	if( chords.length === 0 ) return null;
+	const infos = chords.map( chordInfo );
+	const first = infos[0];
+	const last = infos[ infos.length - 1 ];
+	const is = ( info, tonic, offset, quality ) => mod12( info.root - tonic ) === offset && info.quality === quality;
+
+	let best = null;
+	for( let tonic = 0; tonic < 12; tonic++ ) {
+		let score = 0;
+		for( const info of infos ) {
+			const degree = mod12( info.root - tonic );
+			if( MAJOR_SCALE_CHORDS[degree] === info.quality ) score += 1;
+			else if( MAJOR_SCALE_CHORDS[degree] ) score += 0.25;     // e.g. E in G (V of vi)
+			else if( BORROWED_CHORDS[degree] === info.quality ) score += 0.3;
+			else score -= 0.5;
+		}
+		for( const edge of [ first, last ] ) {
+			if( is( edge, tonic, 0, "maj" ) || is( edge, tonic, 9, "min" ) ) score += 1;
+		}
+		if( !best || score > best.score ) best = { tonic, score };
+	}
+
+	// Major (I) or relative minor (vi)?
+	const tonicWeight = ( offset, quality ) =>
+		infos.filter( info => is( info, best.tonic, offset, quality ) ).length
+		+ ( is( first, best.tonic, offset, quality ) ? 2 : 0 )
+		+ ( is( last, best.tonic, offset, quality ) ? 2 : 0 );
+	const minor = tonicWeight( 9, "min" ) > tonicWeight( 0, "maj" );
+
+	const root = minor ? mod12( best.tonic + 9 ) : best.tonic;
+	// Spell the key like the song does (D# if the song writes D#), otherwise the usual name.
+	const spelling = infos.find( info => info.root === root )?.spelling
+		?? ( minor ? KEY_NAMES_MINOR : KEY_NAMES_MAJOR )[root];
+	return spelling + ( minor ? "m" : "" );
+}
+
+// Song key: first {key:} directive, otherwise guessed from all the chords of the song.
+function findSongKey( entries ) {
+	for( const { text } of entries ) {
+		for( const line of splitLines( text ) ) {
+			const d = line.match( DIRECTIVE_RE );
+			if( d && d[1].toLowerCase() === "key" && d[2] ) return d[2].trim();
+		}
+	}
+	return detectKey( collectChords( entries ) );
+}
+
+// ================= Helpers =================
+
+const escapeHtml = s => s.replace( /&/g, "&amp;" ).replace( /</g, "&lt;" ).replace( />/g, "&gt;" );
+const splitLines = text => text.split( /<br\s*\/?>/i );
+const trimEnd = s => s.replace( /\s+$/, "" );
+const chordSpan = name => `<span class="chord">${ escapeHtml( name ) }</span>`;
+
+// ================= Plain text format (chords line above lyrics line) =================
+
+// Tokens allowed on a chord line besides chords: | / - 2x (2x) x2 Intro:
+const NEUTRAL_TOKEN_RE = /^(?:\||\/|-|\(?\d+x\)?|\(?x\d+\)?|[^\s:]+:)$/i;
+
+function isPlainChordLine( line ) {
+	if( /<[^>]*>/.test( line ) ) return false; // has HTML, leave it alone
+	const tokens = line.match( /\S+/g );
+	if( !tokens ) return false;
+	if( !tokens.every( tk => isChord( tk ) || NEUTRAL_TOKEN_RE.test( tk ) ) ) return false;
+	return tokens.some( isChord );
+}
+
+// Transposes a chord line keeping each chord in its column (or right after the previous one).
+function renderPlainChordLine( line ) {
+	let html = "";
+	let pos = 0;
+	for( const m of line.matchAll( /\S+/g ) ) {
+		const chord = isChord( m[0] );
+		const token = chord ? transposeChord( m[0] ) : m[0];
+		const col = Math.max( m.index, pos === 0 ? 0 : pos + 1 );
+		html += " ".repeat( col - pos ) + ( chord ? chordSpan( token ) : escapeHtml( token ) );
+		pos = col + token.length;
+	}
+	return html;
+}
+
+function renderPlain( text ) {
+	const lines = splitLines( text );
+	if( hideChords ) return lines.filter( line => !isPlainChordLine( line ) ).join( "<br>" );
+	return lines.map( line => isPlainChordLine( line ) ? renderPlainChordLine( line ) : line ).join( "<br>" );
+}
+
+// ================= ChordPro =================
+
+const isChordPro = text => splitLines( text ).some( line =>
+	DIRECTIVE_RE.test( line ) || [ ...line.matchAll( BRACKET_RE ) ].some( m => isChord( m[1].trim() ) )
+);
+
+const cpLine = ( html, cls = "" ) => `<span class="cp-line${ cls ? " " + cls : "" }">${ html === "" ? " " : html }</span>`;
+const cpSpan = ( cls, text ) => `<span class="${ cls }">${ escapeHtml( text ) }</span>`;
+
+// "Gra[C9]nde é o [G]Senhor" -> chord row + lyric row, chords aligned over the syllables.
+function renderChordLyricLine( line, cls ) {
+	if( hideChords ) {
+		const lyric = line.replace( BRACKET_RE, "" );
+		if( lyric.trim() === "" && line.trim() !== "" ) return ""; // chords-only line: drop it
+		return cpLine( escapeHtml( trimEnd( lyric ) ), cls );
+	}
+
+	let lyric = "";
+	let last = 0;
+	let chordEnd = 0; // column right after the previous chord
+	const chords = []; // { col, name }
+
+	for( const m of line.matchAll( BRACKET_RE ) ) {
+		lyric += line.slice( last, m.index );
+		last = m.index + m[0].length;
+		const name = transposeChord( m[1].trim() );
+		let col = lyric.length;
+		const minCol = chords.length ? chordEnd + 1 : 0; // keep one space between chords
+		if( col < minCol ) {
+			// The previous chord is longer than its syllable: stretch the lyric.
+			// Inside a word use "-", between words use spaces.
+			const insideWord = /\S/.test( lyric.slice( -1 ) ) && /[^\s\[]/.test( line.charAt( last ) );
+			lyric += ( insideWord ? "-" : " " ).repeat( minCol - col );
+			col = minCol;
+		}
+		chords.push( { col, name } );
+		chordEnd = col + name.length;
+	}
+	lyric += line.slice( last );
+
+	if( chords.length === 0 ) return cpLine( escapeHtml( lyric ), cls );
+
+	let chordHtml = "";
+	let pos = 0;
+	for( const { col, name } of chords ) {
+		chordHtml += " ".repeat( col - pos ) + chordSpan( name );
+		pos = col + name.length;
+	}
+
+	if( lyric.trim() === "" ) return cpLine( chordHtml, cls ); // chords only (intro, instrumental...)
+	return cpLine( `${ chordHtml }\n${ escapeHtml( trimEnd( lyric ) ) }`, cls );
+}
+
+const SECTION_START = {
+	start_of_chorus: "cp-chorus", soc: "cp-chorus",
+	start_of_verse: "cp-verse",   sov: "cp-verse",
+	start_of_bridge: "cp-bridge", sob: "cp-bridge",
+};
+const SECTION_END = [ "end_of_chorus", "eoc", "end_of_verse", "eov", "end_of_bridge", "eob" ];
+
+function renderChordPro( text ) {
+	const out = [];
+	let section = "";   // "cp-chorus", "cp-verse", "cp-bridge"
+	let inTab = false;
+
+	for( const line of splitLines( text ) ) {
+		const d = line.match( DIRECTIVE_RE );
+
+		if( d ) {
+			const name = d[1].toLowerCase();
+			const value = d[2] ?? "";
+			const pushLabel = () => { if( value !== "" ) out.push( cpLine( cpSpan( "cp-comment", value ) ) ); };
+
+			if( SECTION_START[name] ) {
+				pushLabel();
+				section = SECTION_START[name];
+				continue;
+			}
+			if( SECTION_END.includes( name ) ) {
+				section = "";
+				continue;
+			}
+
+			switch( name ) {
+				case "title": case "t":
+					out.push( cpLine( cpSpan( "cp-title", value ) ) ); break;
+				case "subtitle": case "st": case "artist":
+					out.push( cpLine( cpSpan( "cp-subtitle", value ) ) ); break;
+				case "key":
+					if( !hideChords ) out.push( cpLine( `<span class="cp-meta">Tom: ${ chordSpan( transposeChord( value ) ) }</span>` ) );
+					break;
+				case "capo":
+					if( !hideChords ) out.push( cpLine( cpSpan( "cp-meta", `Capo: ${ value }` ) ) );
+					break;
+				case "comment": case "c": case "comment_italic": case "ci": case "highlight":
+					out.push( cpLine( cpSpan( "cp-comment", value ), section ) ); break;
+				case "comment_box": case "cb":
+					out.push( cpLine( cpSpan( "cp-comment cp-comment-box", value ), section ) ); break;
+				case "chorus": // "repeat the chorus here"
+					out.push( cpLine( cpSpan( "cp-comment", value || "Refrão" ), "cp-chorus" ) ); break;
+				case "start_of_tab": case "sot":
+					pushLabel();
+					inTab = true; break;
+				case "end_of_tab": case "eot":
+					inTab = false; break;
+				default:
+					break; // other directives (tempo, time, album...) are not displayed
+			}
+			continue;
+		}
+
+		if( inTab ) {
+			if( !hideChords ) out.push( cpLine( escapeHtml( line ), section ) );
+			continue;
+		}
+		if( line.startsWith( "#" ) ) continue; // ChordPro comment line
+
+		out.push( renderChordLyricLine( line, section ) );
+	}
+
+	return out.join( "" );
+}
+
+// ================= Web interface =================
+
+const div = document.getElementById( "text" );
+const playstateElm = document.getElementById( "playstate" );
+const vignetteElm = document.getElementById( "vignette" );
+const trValueElm = document.getElementById( "tr-value" );
+
+// playstate is 0 for stopped, 1 for playing, 2 for paused, 5 for recording, and 6 for record paused.
+const PLAYSTATE_COLORS = [ "#000000", "#00FF00", "#FFFF00", "#000000", "#000000", "#FF0000", "#FFFF00" ];
+const SCROLL_OPTIONS = { behavior: "smooth", block: "center", inline: "center" };
+
+if( settings.vignette ) {
+	vignetteElm.style.opacity = "1";
+	div.classList.add( "vignette" );
+}
+if( settings.fullheight ) div.classList.add( "fullheight" );
+if( settings.font !== "" ) div.style.fontFamily = settings.font;
+document.body.classList.toggle( "hide-controls", settings.hideControls );
+document.body.classList.toggle( "hide-chords", hideChords );
+
+function setHideChords( value ) {
+	hideChords = value;
+	document.body.classList.toggle( "hide-chords", hideChords );
+	closeKeyMenu();
+	renderSong();
+}
+
+function setTranspose( value ) {
+	transpose = value % 12; // +12 / -12 is the same key: back to 0
+	renderSong();
+}
+
+// Shows the current key ("Eb"), with a small "+2" when transposed.
+// Without a known key, shows only the offset ("0", "+2").
+function updateTransposeLabel() {
+	const offset = ( transpose > 0 ? "+" : "" ) + transpose;
+	document.body.classList.toggle( "transposed", transpose !== 0 );
+	if( songKey ) {
+		trValueElm.textContent = transposeChord( songKey );
+		if( transpose !== 0 ) trValueElm.dataset.offset = offset;
+		else delete trValueElm.dataset.offset;
+	} else {
+		trValueElm.textContent = offset;
+		delete trValueElm.dataset.offset;
+	}
+}
+
+const lyricsBlock = ( start, end, html, cls = "lyrics" ) =>
+	`<pre class="${ cls }" data-pos-start="${ start }" data-pos-end="${ end }">${ html }</pre>`;
+
+function renderSong() {
+	updateAccidentals( songKey );
+	updateTransposeLabel();
+	if( isMenuOpen() ) buildKeyMenu(); // keys changed with + / - or a new song
+	if( !song.entry ) return;
+
+	const blocks = [];
+	let lastEnd = 0;
+	for( const entry of song.entry ) {
+		const start = parseFloat( entry.pos_start );
+		const end = parseFloat( entry.pos_end );
+		if( settings.fullheight && lastEnd < start ) {
+			blocks.push( lyricsBlock( lastEnd, start, "<br>" ) );
+		}
+		blocks.push( isChordPro( entry.text )
+			? lyricsBlock( start, end, renderChordPro( entry.text ), "lyrics chordpro" )
+			: lyricsBlock( start, end, renderPlain( entry.text ) ) );
+		lastEnd = end;
+	}
+	blocks.push( lyricsBlock( lastEnd, lastEnd + 1000, "<br>" ) );
+
+	div.innerHTML = blocks.join( "\n" );
+	paragraphs = div.querySelectorAll( "pre.lyrics" );
+	fitText();
+}
+
+// ---------- Fit the text to the screen ----------
+
+// Chord lines can't wrap (the chords would lose their place), so instead the font size is
+// chosen so that the widest line of the song fits the screen width, up to FONT_MAX.
+const FONT_MAX = parseFloat( searchParams.get( "maxsize" ) ) || 52; // px, the old 4em (4 x 13px monospace)
+const FONT_MIN = 10;   // px, below that the block scrolls sideways
+const FONT_MIN_LYRICS = 22; // px, lyrics only: below that, lines wrap instead
+const FONT_REF = 100;  // px, size used to measure
+
+function fitText() {
+	if( paragraphs.length === 0 ) return;
+	const root = document.documentElement;
+
+	div.classList.add( "measuring" );
+	root.style.setProperty( "--lyrics-size", `${ FONT_REF }px` );
+	const widest = Math.max( ...[ ...paragraphs ].map( p => p.scrollWidth ) );
+	const padding = getComputedStyle( div );
+	const available = div.clientWidth - parseFloat( padding.paddingLeft ) - parseFloat( padding.paddingRight );
+
+	const fitted = widest > 0 ? FONT_REF * available / widest * 0.98 : FONT_MAX; // 2% safety margin
+	const size = Math.min( FONT_MAX, Math.max( hideChords ? FONT_MIN_LYRICS : FONT_MIN, fitted ) );
+	root.style.setProperty( "--lyrics-size", `${ size.toFixed( 2 ) }px` );
+
+	void div.offsetWidth; // apply the new size before animations come back
+	div.classList.remove( "measuring" );
+}
+
+let resizeFrame = 0;
+function onScreenChange() {
+	cancelAnimationFrame( resizeFrame );
+	resizeFrame = requestAnimationFrame( () => {
+		fitText();
+		div.querySelector( ".current" )?.scrollIntoView( SCROLL_OPTIONS );
+	});
+}
+window.addEventListener( "resize", onScreenChange );          // also fires on rotation
+window.addEventListener( "orientationchange", onScreenChange );
+document.fonts?.ready.then( fitText );                        // custom fonts change the widths
+
+// ---------- Events ----------
+
+// ---------- Key menu ----------
+
+const trMenuElm = document.getElementById( "tr-menu" );
+const isMenuOpen = () => !trMenuElm.hidden;
+
+// Offset that takes the song to pitch class `pc`, between -5 and +6.
+const offsetTo = ( pc, fromPc ) => {
+	const up = mod12( pc - fromPc );
+	return up > 6 ? up - 12 : up;
+};
+
+function buildKeyMenu() {
+	const keyMatch = songKey?.match( CHORD_PARTS_RE );
+	const items = [];
+	if( keyMatch ) {
+		// the 12 keys, starting from C
+		const fromPc = NOTE_INDEX[ keyMatch[1] ];
+		for( let pc = 0; pc < 12; pc++ ) {
+			const offset = offsetTo( pc, fromPc );
+			items.push( { offset, label: keyAt( offset ) } );
+		}
+	} else {
+		// unknown key: list the offsets
+		for( let offset = -5; offset <= 6; offset++ ) items.push( { offset, label: ( offset > 0 ? "+" : "" ) + offset } );
+	}
+
+	trMenuElm.innerHTML = items.map( ( { offset, label } ) => {
+		const cls = [ offset === transpose ? "selected" : "", offset === 0 ? "original" : "" ].join( " " ).trim();
+		const title = offset === 0 ? "Tom original" : `${ offset > 0 ? "+" : "" }${ offset } semitons`;
+		return `<button type="button" role="option" class="${ cls }" data-offset="${ offset }" title="${ title }"`
+			+ ` aria-selected="${ offset === transpose }">${ escapeHtml( label ) }</button>`;
+	}).join( "" );
+}
+
+function openKeyMenu() {
+	buildKeyMenu();
+	trMenuElm.hidden = false;
+	trValueElm.setAttribute( "aria-expanded", "true" );
+}
+
+function closeKeyMenu() {
+	trMenuElm.hidden = true;
+	trValueElm.setAttribute( "aria-expanded", "false" );
+}
+
+trMenuElm.addEventListener( "click", e => {
+	const item = e.target.closest( "button[data-offset]" );
+	if( !item ) return;
+	setTranspose( parseInt( item.dataset.offset ) );
+	closeKeyMenu();
+});
+
+// ---------- Events ----------
+
+document.addEventListener( "click", e => {
+	// a click outside the open key menu only closes it
+	if( isMenuOpen() ) {
+		if( !e.target.closest( "#tr-key" ) ) closeKeyMenu();
+		return;
+	}
+
+	// closest(): the click may land on a chord <span> inside the <pre>
+	const block = e.target.closest( ".lyrics" );
+	if( !block ) return;
+	wwr_req( "SET/POS/" + block.dataset.posStart );
+	block.classList.add( "current" );
+	block.scrollIntoView( SCROLL_OPTIONS );
+});
+
+document.addEventListener( "keydown", e => {
+	if( e.key === "Escape" && isShareOpen() ) return closeShare();
+	if( e.target.closest( "input, textarea" ) || isShareOpen() ) return; // typing the URL: no shortcuts
+	if( e.code === "Space" ) {
+		e.preventDefault();
+		wwr_req( "40044" ); // Transport: Play/stop
+	}
+	else if( e.key === "Escape" ) closeKeyMenu();
+	else if( e.key === "+" || e.key === "=" ) setTranspose( transpose + 1 );
+	else if( e.key === "-" ) setTranspose( transpose - 1 );
+	else if( e.key === "0" ) setTranspose( 0 );
+	else if( e.key.toLowerCase() === "c" ) setHideChords( !hideChords );
+});
+
+const buttons = {
+	"tr-down":   () => setTranspose( transpose - 1 ),
+	"tr-up":     () => setTranspose( transpose + 1 ),
+	"tr-value":  () => isMenuOpen() ? closeKeyMenu() : openKeyMenu(),
+	"tr-chords": () => setHideChords( !hideChords ),
+	"tr-share":  () => openShare(),
+};
+for( const [ id, action ] of Object.entries( buttons ) ) {
+	document.getElementById( id ).addEventListener( "click", e => {
+		action();
+		e.currentTarget.blur(); // so the Space key keeps controlling Play/Stop
+	});
+}
+
+updateTransposeLabel();
+
+// ---------- Share (QR code) ----------
+
+const shareElm = document.getElementById( "share" );
+const shareQrElm = document.getElementById( "share-qr" );
+const shareUrlElm = document.getElementById( "share-url" );
+const shareWarningElm = document.getElementById( "share-warning" );
+const shareIpsElm = document.getElementById( "share-ips" );
+const SHARE_BASE_KEY = "scrollingChords.shareBaseUrl";
+
+let shareLyricsOnly = false;
+let hostIps = [];         // LAN IPs of the REAPER computer, best first (sent by the Lua script)
+let selectedIp = null;    // chosen among hostIps
+let manualBase = null;    // address typed by the user in this session
+
+const isShareOpen = () => !shareElm.hidden;
+
+// localStorage may be blocked (private mode...): the page must work without it
+const storage = {
+	get: key => { try { return localStorage.getItem( key ); } catch { return null; } },
+	set: ( key, value ) => { try { localStorage.setItem( key, value ); } catch {} },
+};
+
+const pageIsLocal = () => isLocalAddress( location.href );
+
+// Page address without options:
+// 1. page opened through the network (phone, tablet...): its own address is already right;
+// 2. typed by the user in this session;
+// 3. LAN IP detected by the Lua script + this page's port and path;
+// 4. typed on this device before (saved), or the page's own address.
+function shareBaseUrl() {
+	if( !pageIsLocal() ) return location.origin + location.pathname;
+	if( manualBase ) return manualBase;
+	const ip = selectedIp ?? hostIps[0];
+	if( ip ) return `${ location.protocol }//${ ip }${ location.port ? ":" + location.port : "" }${ location.pathname }`;
+	return storage.get( SHARE_BASE_KEY ) || location.origin + location.pathname;
+}
+
+function shareUrl() {
+	return shareBaseUrl() + ( shareLyricsOnly ? "?nochords" : "" );
+}
+
+const isLocalAddress = url => {
+	try { return /^(localhost|127\.|\[::1\]|0\.0\.0\.0)/.test( new URL( url ).hostname ); }
+	catch { return false; }
+};
+
+function renderQr( url ) {
+	const qr = qrcode( 0, "M" ); // 0 = smallest version that fits, M = 15% error correction
+	qr.addData( url, "Byte" );
+	qr.make();
+	shareQrElm.innerHTML = qr.createSvgTag( { cellSize: 4, margin: 0, scalable: true, alt: "QR code: " + url } );
+}
+
+function updateShare() {
+	const url = shareUrl();
+	shareUrlElm.value = url;
+	renderQr( url );
+	shareWarningElm.hidden = !isLocalAddress( url );
+	renderIpChoices();
+	for( const b of shareElm.querySelectorAll( "[data-mode]" ) ) {
+		b.setAttribute( "aria-pressed", String( ( b.dataset.mode === "lyrics" ) === shareLyricsOnly ) );
+	}
+}
+
+// When the computer is on several networks (Wi-Fi + cable, Docker, VPN...), the other IPs can be chosen.
+function renderIpChoices() {
+	const current = selectedIp ?? hostIps[0];
+	const others = hostIps.filter( ip => ip !== current );
+	const show = pageIsLocal() && !manualBase && others.length > 0;
+	shareIpsElm.hidden = !show;
+	shareIpsElm.querySelectorAll( "button" ).forEach( b => b.remove() );
+	if( !show ) return;
+	for( const ip of others ) {
+		const b = document.createElement( "button" );
+		b.type = "button";
+		b.dataset.ip = ip;
+		b.textContent = ip;
+		shareIpsElm.append( b );
+	}
+}
+
+function openShare() {
+	closeKeyMenu();
+	shareLyricsOnly = hideChords; // start with what this screen is showing
+	updateShare();
+	shareElm.hidden = false;
+}
+
+function closeShare() {
+	shareElm.hidden = true;
+}
+
+qrcode.stringToBytes = qrcode.stringToBytesFuncs[ "UTF-8" ];
+
+shareElm.addEventListener( "click", e => {
+	if( e.target === shareElm || e.target.closest( "#share-close" ) ) return closeShare(); // backdrop or ×
+	const ipChoice = e.target.closest( "[data-ip]" );
+	if( ipChoice ) {
+		selectedIp = ipChoice.dataset.ip;
+		return updateShare();
+	}
+	const mode = e.target.closest( "[data-mode]" );
+	if( mode ) {
+		shareLyricsOnly = mode.dataset.mode === "lyrics";
+		updateShare();
+	}
+});
+
+// Editing the address: keep the edited base (without ?options) for next time, on this device
+shareUrlElm.addEventListener( "input", () => {
+	const value = shareUrlElm.value.trim();
+	try {
+		const url = new URL( value );
+		manualBase = url.origin + url.pathname;
+		storage.set( SHARE_BASE_KEY, manualBase );
+		shareLyricsOnly = url.searchParams.has( "nochords" );
+	} catch {
+		// incomplete address while typing: just draw what is there
+	}
+	renderQr( value || " " );
+	shareWarningElm.hidden = !isLocalAddress( value );
+	renderIpChoices();
+});
+
+// ---------- REAPER communication ----------
+
+// Called by main.js with REAPER's reply. One line per request, fields separated by tabs.
+function wwr_onreply( results ) {
+	for( const row of results.split( "\n" ) ) {
+		const tok = row.split( "\t" );
+		if( tok.length < 2 ) continue;
+
+		if( tok[1] === "XR_Lyrics" ) { // EXTSTATE \t section \t key \t value
+			if( tok[2] === "need_refresh" && ( tok[3] === "true" || firstRun ) ) {
+				wwr_req( "GET/EXTSTATE/XR_Lyrics/json;GET/EXTSTATE/XR_Lyrics/host_ips;SET/EXTSTATE/XR_Lyrics/need_refresh/false" );
+				firstRun = false;
+			}
+			else if( tok[2] === "json" && tok[3] !== "" ) {
+				const text = tok[3].replaceAll( /\\n/gm, "\n" ).replaceAll( /\\\\/gm, "\\" );
+				song = JSON.parse( text );
+				songKey = findSongKey( song.entry );
+				renderSong();
+			}
+			else if( tok[2] === "host_ips" ) {
+				hostIps = ( tok[3] ?? "" ).split( "," ).filter( Boolean );
+				if( !hostIps.includes( selectedIp ) ) selectedIp = null;
+				if( isShareOpen() ) updateShare();
+			}
+		}
+
+		// TRANSPORT \t playstate \t position_seconds \t isRepeatOn \t position_string \t position_string_beats
+		else if( tok[0] === "TRANSPORT" ) {
+			const playstate = parseInt( tok[1] );
+			const time = parseFloat( tok[2] );
+			playstateElm.style.background = PLAYSTATE_COLORS[playstate];
+			if( !song.entry ) continue;
+
+			for( const p of paragraphs ) {
+				const isCurrent = time >= parseFloat( p.dataset.posStart ) - 0.000001 && time <= parseFloat( p.dataset.posEnd );
+				p.classList.toggle( "current", isCurrent );
+				if( isCurrent && playstate > 0 ) p.scrollIntoView( SCROLL_OPTIONS );
+			}
+		}
+	}
+}
+
+wwr_start();
+wwr_req_recur( "GET/EXTSTATE/XR_Lyrics/need_refresh;TRANSPORT", 10 );
+</script>
+
+</body>
+</html>
