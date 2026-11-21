@@ -8,11 +8,13 @@
  * Original Repository URI: https://github.com/X-Raym/REAPER-ReaScripts
  * Licence: GPL v3
  * REAPER: 5.0
- * Version: 1.5
+ * Version: 1.6
 --]]
 
 --[[
  * Changelog:
+ * v1.6
+  + Alert message in English, Portuguese or Spanish (REAPER language pack, then system language)
  * v1.5
   + Publish the computer's LAN IPs (ExtState XR_Lyrics/host_ips) for the page's share QR code
  * v1.4
@@ -30,6 +32,52 @@
 --]]
 
 TRACK_NAME = "lyrics" -- compared in lowercase, ignoring leading/trailing spaces
+
+------------------------------------------------------------------
+-- Messages in English, Portuguese and Spanish
+------------------------------------------------------------------
+
+MESSAGES = {
+  en = { no_track = 'No track named "Lyrics" with items with notes was found.' },
+  pt = { no_track = 'Nenhuma track chamada "Lyrics" com itens com notas foi encontrada.' },
+  es = { no_track = 'No se encontró ninguna pista llamada "Lyrics" con ítems con notas.' },
+}
+
+-- "pt_BR.UTF-8", "Portuguese_Brazil.1252", "Español.ReaperLangPack"... -> "pt" / "es" / nil
+function LangFromName( name )
+  name = ( name or "" ):lower()
+  if name:match( "^pt" ) or name:find( "portug" ) then return "pt" end
+  if name:match( "^es" ) or name:find( "spanish" ) or name:find( "espa" ) then return "es" end
+  if name:match( "^en" ) or name:find( "english" ) then return "en" end
+  return nil
+end
+
+function DetectLang()
+  -- 1. REAPER language pack (Options > Preferences > General > Language)
+  local ini = io.open( reaper.get_ini_file(), "r" )
+  if ini then
+    local content = ini:read( "*a" ) or ""
+    ini:close()
+    local lang = LangFromName( content:match( "\nlangpack=([^\r\n]*)" ) )
+    if lang then return lang end
+  end
+  -- 2. System language: environment (Linux, macOS)...
+  for _, var in ipairs( { "LC_ALL", "LC_MESSAGES", "LANG" } ) do
+    local lang = LangFromName( os.getenv( var ) )
+    if lang then return lang end
+  end
+  -- ... or the system locale (Windows). The locale is restored right away: with a
+  -- Portuguese/Spanish locale, numbers would be written as "1,5" and break the JSON.
+  local current = os.setlocale( nil )
+  local system = os.setlocale( "" )
+  os.setlocale( current )
+  return LangFromName( system ) or "en"
+end
+
+function Msg( key )
+  local lang = DetectLang()
+  return ( MESSAGES[lang] or MESSAGES.en )[key] or MESSAGES.en[key]
+end
 
 ------------------------------------------------------------------
 -- Host IP: the web page can't know the computer's LAN IP when it is opened
@@ -204,7 +252,7 @@ function Main()
 
     local track, t = FindLyricsTrack()
     if not track then
-      reaper.MB( 'Nenhuma track chamada "Lyrics" com itens com notas foi encontrada.', "Scrolling Lyrics", 0 )
+      reaper.MB( Msg( "no_track" ), "Scrolling Lyrics", 0 )
       return
     end
 
