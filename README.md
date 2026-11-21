@@ -16,6 +16,7 @@ Baseada nos scripts e na interface *Scrolling Lyrics / Scrolling Chords* do [X-R
 - **Modo "só letra"** para quem canta: tecla `C` ou `?nochords`.
 - **Ajuste à tela:** a fonte se adapta para a linha mais larga caber, em pé ou deitado, sem desalinhar os acordes.
 - **Compartilhar por QR code**, com o IP da rede detectado pelo script. Funciona sem internet.
+- **Inglês, português e espanhol**, de acordo com o idioma do navegador de cada dispositivo.
 
 ## Arquivos
 
@@ -71,6 +72,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 | `?fullheight` | Um bloco por tela, inclusive os intervalos sem letra |
 | `?vignette` | Escurece as bordas da tela |
 | `?font=Nome` | Fonte da página |
+| `?lang=en` / `pt` / `es` | Força o idioma (o padrão é o do navegador; outros idiomas caem no inglês) |
 
 ### Atalhos de teclado
 

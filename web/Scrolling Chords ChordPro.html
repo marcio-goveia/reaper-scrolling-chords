@@ -522,57 +522,57 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
 <div id="vignette"></div>
 <div id="text">
 	<h1>REAPER Scrolling Chords (ChordPro)</h1>
-	<h2>State</h2>
-	<p><strong>OFF</strong>: Run a companion script to initialize.</p>
-	<h2>Installation</h2>
-	<p>Set this page as REAPER web interface, with menu Options > Preferences > Control/Osc/Web.</p>
-	<h2>Start</h2>
+	<h2 data-i18n="intro.state">State</h2>
+	<p data-i18n-html="intro.off"><strong>OFF</strong>: Run the companion script to initialize.</p>
+	<h2 data-i18n="intro.installation">Installation</h2>
+	<p data-i18n="intro.installText">Set this page as REAPER web interface, with menu Options › Preferences › Control/OSC/Web.</p>
+	<h2 data-i18n="intro.start">Start</h2>
 	<div class="container">
 		<ol>
-			<li>Connect to the web interface using web browser of device on your local network</li>
-			<li>Run the companion script, to push lyrics to the web interface from items notes on the "Lyrics" track.</li>
+			<li data-i18n="intro.start1">Connect to the web interface using a web browser on a device in your local network.</li>
+			<li data-i18n="intro.start2">Run the companion script to send the lyrics from the item notes of the "Lyrics" track to the web interface.</li>
 		</ol>
 	</div>
-	<h2>Companion Script</h2>
+	<h2 data-i18n="intro.script">Companion Script</h2>
 	<div class="container">
 		<ol>
-			<li>In REAPER, load the script with <em>Actions › Show action list › New action › Load ReaScript…</em>:<br>
+			<li><span data-i18n-html="intro.script1">In REAPER, load the script with <em>Actions › Show action list › New action › Load ReaScript…</em>:</span><br>
 				<code>Convert Lyrics track items notes for scrolling web browser interface.lua</code></li>
-			<li>Run it from the action list (or assign it a shortcut). Run it again whenever you edit the notes.</li>
+			<li data-i18n="intro.script2">Run it from the action list (or assign it a shortcut). Run it again whenever you edit the notes.</li>
 		</ol>
 	</div>
 </div>
 <div id="playstate"></div>
 <div id="transpose">
 	<span id="tr-group">
-		<button id="tr-down" class="tr-round" type="button" title="Descer meio tom (tecla -)" aria-label="Descer meio tom">
+		<button id="tr-down" class="tr-round" type="button" data-i18n-title="tr.downTitle" data-i18n-aria="tr.down" title="Half step down (- key)" aria-label="Half step down">
 			<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M7.5 12h9"/></svg>
 		</button>
 		<span id="tr-key">
-			<button id="tr-value" type="button" title="Escolher o tom (tecla 0 volta ao original)" aria-haspopup="listbox" aria-expanded="false">0</button>
+			<button id="tr-value" type="button" data-i18n-title="tr.keyTitle" title="Choose the key (0 key goes back to the original)" aria-haspopup="listbox" aria-expanded="false">0</button>
 			<span id="tr-menu" role="listbox" hidden></span>
 		</span>
-		<button id="tr-up" class="tr-round" type="button" title="Subir meio tom (tecla +)" aria-label="Subir meio tom">
+		<button id="tr-up" class="tr-round" type="button" data-i18n-title="tr.upTitle" data-i18n-aria="tr.up" title="Half step up (+ key)" aria-label="Half step up">
 			<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M7.5 12h9M12 7.5v9"/></svg>
 		</button>
 	</span>
-	<button id="tr-chords" type="button" title="Mostrar/esconder acordes (tecla C)">Acordes</button>
-	<button id="tr-share" class="tr-round" type="button" title="Compartilhar esta página (QR code)" aria-label="Compartilhar">
+	<button id="tr-chords" type="button" data-i18n="tr.chords" data-i18n-title="tr.chordsTitle" title="Show/hide chords (C key)">Chords</button>
+	<button id="tr-share" class="tr-round" type="button" data-i18n-title="tr.shareTitle" data-i18n-aria="tr.share" title="Share this page (QR code)" aria-label="Share">
 		<svg viewBox="0 0 24 24"><circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="M8.7 10.7l6.6-3.9M8.7 13.3l6.6 3.9"/></svg>
 	</button>
 </div>
 <div id="share" role="dialog" aria-modal="true" aria-labelledby="share-title" hidden>
 	<div class="share-card">
-		<button id="share-close" type="button" aria-label="Fechar">×</button>
-		<h2 id="share-title">Abrir em outro dispositivo</h2>
+		<button id="share-close" type="button" data-i18n-aria="share.close" aria-label="Close">×</button>
+		<h2 id="share-title" data-i18n="share.title">Open on another device</h2>
 		<div id="share-qr"></div>
-		<div class="share-modes" role="group" aria-label="O que mostrar">
-			<button type="button" data-mode="chords" aria-pressed="true">Com acordes</button>
-			<button type="button" data-mode="lyrics" aria-pressed="false">Só letra</button>
+		<div class="share-modes" role="group" data-i18n-aria="share.modes" aria-label="What to show">
+			<button type="button" data-mode="chords" aria-pressed="true" data-i18n="share.withChords">With chords</button>
+			<button type="button" data-mode="lyrics" aria-pressed="false" data-i18n="share.lyricsOnly">Lyrics only</button>
 		</div>
-		<input id="share-url" type="url" spellcheck="false" autocomplete="off" aria-label="Endereço compartilhado">
-		<div id="share-ips" hidden><span>Outras redes:</span></div>
-		<p id="share-warning" hidden>Este endereço só funciona neste computador. Rode o script no REAPER para detectar o IP da rede, ou digite-o aqui.</p>
+		<input id="share-url" type="url" spellcheck="false" autocomplete="off" data-i18n-aria="share.url" aria-label="Shared address">
+		<div id="share-ips" hidden><span data-i18n="share.otherNetworks">Other networks:</span></div>
+		<p id="share-warning" data-i18n="share.warning" hidden>This address only works on this computer. Run the script in REAPER to detect the network IP, or type it here.</p>
 	</div>
 </div>
 
@@ -599,6 +599,144 @@ let songKey = null;
 let song = {};         // JSON sent by the Lua script: { entry: [ { pos_start, pos_end, text } ] }
 let paragraphs = [];
 let firstRun = true;
+
+// ================= Languages =================
+
+// Screen texts in English, Portuguese and Spanish. {name} is replaced by t( key, { name } ).
+// REAPER menu names stay in English: that's how they appear in REAPER.
+const I18N = {
+	en: {
+		"intro.state": "State",
+		"intro.off": "<strong>OFF</strong>: Run the companion script to initialize.",
+		"intro.installation": "Installation",
+		"intro.installText": "Set this page as REAPER web interface, with menu Options › Preferences › Control/OSC/Web.",
+		"intro.start": "Start",
+		"intro.start1": "Connect to the web interface using a web browser on a device in your local network.",
+		"intro.start2": "Run the companion script to send the lyrics from the item notes of the \"Lyrics\" track to the web interface.",
+		"intro.script": "Companion Script",
+		"intro.script1": "In REAPER, load the script with <em>Actions › Show action list › New action › Load ReaScript…</em>:",
+		"intro.script2": "Run it from the action list (or assign it a shortcut). Run it again whenever you edit the notes.",
+		"tr.down": "Half step down",
+		"tr.downTitle": "Half step down (- key)",
+		"tr.up": "Half step up",
+		"tr.upTitle": "Half step up (+ key)",
+		"tr.keyTitle": "Choose the key (0 key goes back to the original)",
+		"tr.chords": "Chords",
+		"tr.chordsTitle": "Show/hide chords (C key)",
+		"tr.share": "Share",
+		"tr.shareTitle": "Share this page (QR code)",
+		"menu.original": "Original key",
+		"menu.semitones": "{n} semitones",
+		"share.close": "Close",
+		"share.title": "Open on another device",
+		"share.modes": "What to show",
+		"share.withChords": "With chords",
+		"share.lyricsOnly": "Lyrics only",
+		"share.url": "Shared address",
+		"share.otherNetworks": "Other networks:",
+		"share.warning": "This address only works on this computer. Run the script in REAPER to detect the network IP, or type it here.",
+		"share.qrAlt": "QR code: {url}",
+		"cp.key": "Key:",
+		"cp.capo": "Capo:",
+		"cp.chorus": "Chorus",
+	},
+	pt: {
+		"intro.state": "Estado",
+		"intro.off": "<strong>DESLIGADO</strong>: rode o script para iniciar.",
+		"intro.installation": "Instalação",
+		"intro.installText": "Defina esta página como interface web do REAPER, no menu Options › Preferences › Control/OSC/Web.",
+		"intro.start": "Início",
+		"intro.start1": "Acesse a interface web pelo navegador de um dispositivo na sua rede local.",
+		"intro.start2": "Rode o script para enviar à interface web as letras das notas dos itens da track \"Lyrics\".",
+		"intro.script": "Script",
+		"intro.script1": "No REAPER, carregue o script em <em>Actions › Show action list › New action › Load ReaScript…</em>:",
+		"intro.script2": "Rode-o pela lista de ações (ou associe um atalho). Rode de novo sempre que editar as notas.",
+		"tr.down": "Descer meio tom",
+		"tr.downTitle": "Descer meio tom (tecla -)",
+		"tr.up": "Subir meio tom",
+		"tr.upTitle": "Subir meio tom (tecla +)",
+		"tr.keyTitle": "Escolher o tom (tecla 0 volta ao original)",
+		"tr.chords": "Acordes",
+		"tr.chordsTitle": "Mostrar/esconder acordes (tecla C)",
+		"tr.share": "Compartilhar",
+		"tr.shareTitle": "Compartilhar esta página (QR code)",
+		"menu.original": "Tom original",
+		"menu.semitones": "{n} semitons",
+		"share.close": "Fechar",
+		"share.title": "Abrir em outro dispositivo",
+		"share.modes": "O que mostrar",
+		"share.withChords": "Com acordes",
+		"share.lyricsOnly": "Só letra",
+		"share.url": "Endereço compartilhado",
+		"share.otherNetworks": "Outras redes:",
+		"share.warning": "Este endereço só funciona neste computador. Rode o script no REAPER para detectar o IP da rede, ou digite-o aqui.",
+		"share.qrAlt": "QR code: {url}",
+		"cp.key": "Tom:",
+		"cp.capo": "Capo:",
+		"cp.chorus": "Refrão",
+	},
+	es: {
+		"intro.state": "Estado",
+		"intro.off": "<strong>APAGADO</strong>: ejecuta el script para iniciar.",
+		"intro.installation": "Instalación",
+		"intro.installText": "Configura esta página como interfaz web de REAPER, en el menú Options › Preferences › Control/OSC/Web.",
+		"intro.start": "Inicio",
+		"intro.start1": "Accede a la interfaz web desde el navegador de un dispositivo en tu red local.",
+		"intro.start2": "Ejecuta el script para enviar a la interfaz web las letras de las notas de los ítems de la pista \"Lyrics\".",
+		"intro.script": "Script",
+		"intro.script1": "En REAPER, carga el script en <em>Actions › Show action list › New action › Load ReaScript…</em>:",
+		"intro.script2": "Ejecútalo desde la lista de acciones (o asígnale un atajo). Vuelve a ejecutarlo cada vez que edites las notas.",
+		"tr.down": "Bajar medio tono",
+		"tr.downTitle": "Bajar medio tono (tecla -)",
+		"tr.up": "Subir medio tono",
+		"tr.upTitle": "Subir medio tono (tecla +)",
+		"tr.keyTitle": "Elegir el tono (la tecla 0 vuelve al original)",
+		"tr.chords": "Acordes",
+		"tr.chordsTitle": "Mostrar/ocultar acordes (tecla C)",
+		"tr.share": "Compartir",
+		"tr.shareTitle": "Compartir esta página (código QR)",
+		"menu.original": "Tono original",
+		"menu.semitones": "{n} semitonos",
+		"share.close": "Cerrar",
+		"share.title": "Abrir en otro dispositivo",
+		"share.modes": "Qué mostrar",
+		"share.withChords": "Con acordes",
+		"share.lyricsOnly": "Solo letra",
+		"share.url": "Dirección compartida",
+		"share.otherNetworks": "Otras redes:",
+		"share.warning": "Esta dirección solo funciona en este equipo. Ejecuta el script en REAPER para detectar la IP de la red, o escríbela aquí.",
+		"share.qrAlt": "Código QR: {url}",
+		"cp.key": "Tono:",
+		"cp.capo": "Capo:",
+		"cp.chorus": "Estribillo",
+	},
+};
+
+// ?lang=en|pt|es, otherwise the browser's language, otherwise English
+function detectLang() {
+	const forced = searchParams.get( "lang" )?.toLowerCase();
+	if( I18N[forced] ) return forced;
+	for( const l of navigator.languages ?? [ navigator.language ] ) {
+		const base = ( l ?? "" ).slice( 0, 2 ).toLowerCase();
+		if( I18N[base] ) return base;
+	}
+	return "en";
+}
+
+const lang = detectLang();
+
+const t = ( key, vars = {} ) =>
+	( I18N[lang][key] ?? I18N.en[key] ?? key ).replace( /\{(\w+)\}/g, ( _, name ) => vars[name] ?? "" );
+
+// Fills the elements marked with data-i18n (text), data-i18n-html (trusted markup from I18N),
+// data-i18n-title (tooltip) and data-i18n-aria (screen readers).
+function applyI18n() {
+	document.documentElement.lang = lang;
+	for( const el of document.querySelectorAll( "[data-i18n]" ) ) el.textContent = t( el.dataset.i18n );
+	for( const el of document.querySelectorAll( "[data-i18n-html]" ) ) el.innerHTML = t( el.dataset.i18nHtml );
+	for( const el of document.querySelectorAll( "[data-i18n-title]" ) ) el.title = t( el.dataset.i18nTitle );
+	for( const el of document.querySelectorAll( "[data-i18n-aria]" ) ) el.setAttribute( "aria-label", t( el.dataset.i18nAria ) );
+}
 
 // ================= Chords =================
 
@@ -881,17 +1019,17 @@ function renderChordPro( text ) {
 				case "subtitle": case "st": case "artist":
 					out.push( cpLine( cpSpan( "cp-subtitle", value ) ) ); break;
 				case "key":
-					if( !hideChords ) out.push( cpLine( `<span class="cp-meta">Tom: ${ chordSpan( transposeChord( value ) ) }</span>` ) );
+					if( !hideChords ) out.push( cpLine( `<span class="cp-meta">${ t( "cp.key" ) } ${ chordSpan( transposeChord( value ) ) }</span>` ) );
 					break;
 				case "capo":
-					if( !hideChords ) out.push( cpLine( cpSpan( "cp-meta", `Capo: ${ value }` ) ) );
+					if( !hideChords ) out.push( cpLine( cpSpan( "cp-meta", `${ t( "cp.capo" ) } ${ value }` ) ) );
 					break;
 				case "comment": case "c": case "comment_italic": case "ci": case "highlight":
 					out.push( cpLine( cpSpan( "cp-comment", value ), section ) ); break;
 				case "comment_box": case "cb":
 					out.push( cpLine( cpSpan( "cp-comment cp-comment-box", value ), section ) ); break;
 				case "chorus": // "repeat the chorus here"
-					out.push( cpLine( cpSpan( "cp-comment", value || "Refrão" ), "cp-chorus" ) ); break;
+					out.push( cpLine( cpSpan( "cp-comment", value || t( "cp.chorus" ) ), "cp-chorus" ) ); break;
 				case "start_of_tab": case "sot":
 					pushLabel();
 					inTab = true; break;
@@ -925,6 +1063,8 @@ const trValueElm = document.getElementById( "tr-value" );
 // playstate is 0 for stopped, 1 for playing, 2 for paused, 5 for recording, and 6 for record paused.
 const PLAYSTATE_COLORS = [ "#000000", "#00FF00", "#FFFF00", "#000000", "#000000", "#FF0000", "#FFFF00" ];
 const SCROLL_OPTIONS = { behavior: "smooth", block: "center", inline: "center" };
+
+applyI18n();
 
 if( settings.vignette ) {
 	vignetteElm.style.opacity = "1";
@@ -1060,7 +1200,7 @@ function buildKeyMenu() {
 
 	trMenuElm.innerHTML = items.map( ( { offset, label } ) => {
 		const cls = [ offset === transpose ? "selected" : "", offset === 0 ? "original" : "" ].join( " " ).trim();
-		const title = offset === 0 ? "Tom original" : `${ offset > 0 ? "+" : "" }${ offset } semitons`;
+		const title = offset === 0 ? t( "menu.original" ) : t( "menu.semitones", { n: ( offset > 0 ? "+" : "" ) + offset } );
 		return `<button type="button" role="option" class="${ cls }" data-offset="${ offset }" title="${ title }"`
 			+ ` aria-selected="${ offset === transpose }">${ escapeHtml( label ) }</button>`;
 	}).join( "" );
@@ -1181,7 +1321,7 @@ function renderQr( url ) {
 	const qr = qrcode( 0, "M" ); // 0 = smallest version that fits, M = 15% error correction
 	qr.addData( url, "Byte" );
 	qr.make();
-	shareQrElm.innerHTML = qr.createSvgTag( { cellSize: 4, margin: 0, scalable: true, alt: "QR code: " + url } );
+	shareQrElm.innerHTML = qr.createSvgTag( { cellSize: 4, margin: 0, scalable: true, alt: t( "share.qrAlt", { url } ) } );
 }
 
 function updateShare() {
