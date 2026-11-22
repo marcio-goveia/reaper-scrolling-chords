@@ -79,7 +79,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 | `?vignette` | Oscurece los bordes de la pantalla |
 | `?font=Nombre` | Fuente de la página |
 | `?fadeout` | Activa el **Fade** |
-| `?fadetime=6` | Duración del fade en segundos (por defecto 4) |
+| `?fadetime=6` | Duración del fade en segundos (por defecto 6) |
 | `?lang=en` / `pt` / `es` | Fuerza el idioma (por defecto el del navegador; otros idiomas pasan al inglés) |
 
 ### Atajos de teclado
@@ -95,7 +95,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 
 ## Cómo funciona
 
-El script Lua se ejecuta en segundo plano. Observa la pestaña de proyecto activa y el historial de deshacer, y vuelve a leer todo una vez por segundo para detectar cambios que no aparecen en el historial. Lee las notas de los ítems de la pista `Lyrics` y las publica como JSON en el ExtState `XR_Lyrics/json`, solo cuando algo cambió. Cuando cambia el proyecto, la página vuelve al tono original. También publica las IPs de red del equipo en `XR_Lyrics/host_ips`. La página web pide estos datos a REAPER a través de la API de la interfaz web (`main.js`, que viene con REAPER) y sigue la posición de reproducción para resaltar la parte actual. Para el fade, la página escribe la duración en el ExtState `XR_Lyrics/fade_stop`: el script baja el volumen de la pista master (de forma uniforme en dB, hasta -60 dB), detiene la reproducción y restaura el volumen. Si el script no se está ejecutando, la barra espaciadora solo detiene.
+El script Lua se ejecuta en segundo plano. Observa la pestaña de proyecto activa y el historial de deshacer, y vuelve a leer todo una vez por segundo para detectar cambios que no aparecen en el historial. Lee las notas de los ítems de la pista `Lyrics` y las publica como JSON en el ExtState `XR_Lyrics/json`, solo cuando algo cambió. Cuando cambia el proyecto, la página vuelve al tono original. También publica las IPs de red del equipo en `XR_Lyrics/host_ips`. La página web pide estos datos a REAPER a través de la API de la interfaz web (`main.js`, que viene con REAPER) y sigue la posición de reproducción para resaltar la parte actual. Para el fade, la página escribe la duración en el ExtState `XR_Lyrics/fade_stop`: el script baja el volumen de la pista master (de forma uniforme en dB, hasta -60 dB y luego silencio), detiene la reproducción, espera a que el audio se detenga de verdad y restaura el volumen. Si el script no se está ejecutando, la barra espaciadora solo detiene.
 
 ## Créditos y licencia
 

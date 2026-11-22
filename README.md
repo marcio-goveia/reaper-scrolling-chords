@@ -79,7 +79,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 | `?vignette` | Darkens the edges of the screen |
 | `?font=Name` | Page font |
 | `?fadeout` | Turns **Fade** on |
-| `?fadetime=6` | Fade length in seconds (default 4) |
+| `?fadetime=6` | Fade length in seconds (default 6) |
 | `?lang=en` / `pt` / `es` | Forces the language (default is the browser's; other languages fall back to English) |
 
 ### Keyboard shortcuts
@@ -95,7 +95,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 
 ## How it works
 
-The Lua script runs in the background. It watches the active project tab and its undo history, and re-reads everything once per second for changes the history doesn't show. It reads the notes of the items on the `Lyrics` track and publishes them as JSON in the `XR_Lyrics/json` ExtState, only when something changed. When the project changes, the page goes back to the original key. It also publishes the computer's network IPs in `XR_Lyrics/host_ips`. The web page requests this data from REAPER through the web interface API (`main.js`, which ships with REAPER) and follows the playback position to highlight the current part. For the fade, the page writes the length in the `XR_Lyrics/fade_stop` ExtState: the script fades the master track volume (even in dB, down to -60 dB), stops and restores the volume. If the script isn't running, Space just stops.
+The Lua script runs in the background. It watches the active project tab and its undo history, and re-reads everything once per second for changes the history doesn't show. It reads the notes of the items on the `Lyrics` track and publishes them as JSON in the `XR_Lyrics/json` ExtState, only when something changed. When the project changes, the page goes back to the original key. It also publishes the computer's network IPs in `XR_Lyrics/host_ips`. The web page requests this data from REAPER through the web interface API (`main.js`, which ships with REAPER) and follows the playback position to highlight the current part. For the fade, the page writes the length in the `XR_Lyrics/fade_stop` ExtState: the script fades the master track volume (even in dB, down to -60 dB, then silence), stops, waits for the audio to really stop and restores the volume. If the script isn't running, Space just stops.
 
 ## Credits and license
 

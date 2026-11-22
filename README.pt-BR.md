@@ -79,7 +79,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 | `?vignette` | Escurece as bordas da tela |
 | `?font=Nome` | Fonte da página |
 | `?fadeout` | Liga o **Fade** |
-| `?fadetime=6` | Duração do fade em segundos (padrão 4) |
+| `?fadetime=6` | Duração do fade em segundos (padrão 6) |
 | `?lang=en` / `pt` / `es` | Força o idioma (o padrão é o do navegador; outros idiomas caem no inglês) |
 
 ### Atalhos de teclado
@@ -95,7 +95,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 
 ## Como funciona
 
-O script Lua roda em segundo plano. Ele observa a aba de projeto ativa e o histórico de desfazer, e relê tudo uma vez por segundo para pegar mudanças que não aparecem no histórico. Ele lê as notas dos itens da track `Lyrics` e as publica como JSON na ExtState `XR_Lyrics/json`, só quando algo mudou. Quando o projeto muda, a página volta ao tom original. Ele também publica os IPs de rede do computador em `XR_Lyrics/host_ips`. A página web pede esses dados ao REAPER pela API da interface web (`main.js`, que vem com o REAPER) e acompanha a posição da reprodução para destacar o trecho atual. Para o fade, a página grava a duração na ExtState `XR_Lyrics/fade_stop`: o script baixa o volume da track master (de forma uniforme em dB, até -60 dB), para a reprodução e restaura o volume. Se o script não estiver rodando, a barra de espaço só para.
+O script Lua roda em segundo plano. Ele observa a aba de projeto ativa e o histórico de desfazer, e relê tudo uma vez por segundo para pegar mudanças que não aparecem no histórico. Ele lê as notas dos itens da track `Lyrics` e as publica como JSON na ExtState `XR_Lyrics/json`, só quando algo mudou. Quando o projeto muda, a página volta ao tom original. Ele também publica os IPs de rede do computador em `XR_Lyrics/host_ips`. A página web pede esses dados ao REAPER pela API da interface web (`main.js`, que vem com o REAPER) e acompanha a posição da reprodução para destacar o trecho atual. Para o fade, a página grava a duração na ExtState `XR_Lyrics/fade_stop`: o script baixa o volume da track master (de forma uniforme em dB, até -60 dB e depois silêncio), para a reprodução, espera o áudio parar de fato e restaura o volume. Se o script não estiver rodando, a barra de espaço só para.
 
 ## Créditos e licença
 

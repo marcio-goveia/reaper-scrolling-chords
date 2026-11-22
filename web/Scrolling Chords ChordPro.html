@@ -613,7 +613,7 @@ const settings = {
 };
 
 let hideChords = searchParams.has( "nochords" ); // lyrics only, for singers
-const FADE_TIME = parseFloat( searchParams.get( "fadetime" ) ) || 4; // seconds
+const FADE_TIME = parseFloat( searchParams.get( "fadetime" ) ) || 6; // seconds
 let playstate = 0;          // from REAPER's TRANSPORT reply
 let scriptRunning = false;  // the Lua background script does the fade
 let fading = false;         // fade asked, until playback stops

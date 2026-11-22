@@ -10,11 +10,14 @@
  * Original Repository URI: https://github.com/X-Raym/REAPER-ReaScripts
  * Licence: GPL v3
  * REAPER: 5.0
- * Version: 1.8
+ * Version: 1.9
 --]]
 
 --[[
  * Changelog:
+ * v1.9
+  # Fade: the volume went back before the audio had really stopped. Now: fade, silence (volume 0),
+    stop, wait for REAPER to stop and its buffers to empty, then put the volume back
  * v1.8
   + Fade out and stop, asked by the web page (ExtState XR_Lyrics/fade_stop = seconds):
     fades the master volume, stops, then puts the volume back
@@ -45,7 +48,10 @@
 TRACK_NAME = "lyrics" -- compared in lowercase, ignoring leading/trailing spaces
 CHECK_EVERY = 1     -- seconds: full re-read, for edits that don't change the project state count
 IPS_EVERY = 60      -- seconds: re-detect the network IPs (Wi-Fi changed...)
-FADE_FLOOR_DB = -60 -- the fade goes from the master volume down to this, then playback stops
+FADE_FLOOR_DB = -60 -- the fade goes from the master volume down to this, then to silence
+FADE_SILENCE = 0.3  -- seconds at volume 0 before stopping: audio already processed ahead plays silent
+FADE_RESTORE = 0.5  -- seconds after REAPER has stopped before the volume goes back (audio buffers)
+FADE_STOP_TIMEOUT = 3 -- seconds: if REAPER never reports stopped, the volume goes back anyway
 FADE_MAX = 30       -- seconds, longest fade accepted from the page
 
 ------------------------------------------------------------------
@@ -246,27 +252,68 @@ end
 -- The fade is even in dB: from the master volume down to FADE_FLOOR_DB.
 ------------------------------------------------------------------
 
-local fade = nil -- { proj, master, vol, start, duration } while fading
+-- fade.phase: "fade" (volume going down) -> "silence" (volume 0) -> "stopping" (stop asked,
+-- volume 0, waiting) -> volume back. Playback stopped by someone else during the fade: "stopping".
+local fade = nil
 
 function StartFade( seconds, now )
   local proj = reaper.EnumProjects( -1 )
   if reaper.GetPlayStateEx( proj ) ~= 1 then return end -- only while playing (not paused or recording)
   local master = reaper.GetMasterTrack( proj )
   fade = { proj = proj, master = master, vol = reaper.GetMediaTrackInfo_Value( master, "D_VOL" ),
-           start = now, duration = seconds }
+           phase = "fade", start = now, duration = seconds }
 end
 
-function EndFade( stop )
-  if stop then reaper.OnStopButtonEx( fade.proj ) end
-  reaper.SetMediaTrackInfo_Value( fade.master, "D_VOL", fade.vol ) -- volume back, after stopping
+function SetMasterVolume( vol )
+  reaper.SetMediaTrackInfo_Value( fade.master, "D_VOL", vol )
+end
+
+function RestoreVolume()
+  SetMasterVolume( fade.vol )
   fade = nil
 end
 
+function Silence( now, phase )
+  SetMasterVolume( 0 )
+  fade.phase, fade.since = phase, now
+end
+
 function FadeStep( now )
-  if reaper.GetPlayStateEx( fade.proj ) & 1 == 0 then return EndFade( false ) end -- stopped meanwhile
-  local progress = ( now - fade.start ) / fade.duration
-  if progress >= 1 then return EndFade( true ) end
-  reaper.SetMediaTrackInfo_Value( fade.master, "D_VOL", fade.vol * 10 ^ ( FADE_FLOOR_DB * progress / 20 ) )
+  local playing = reaper.GetPlayStateEx( fade.proj ) & 1 == 1
+
+  if fade.phase == "fade" or fade.phase == "silence" then
+    if not playing then -- stopped meanwhile (Space again)
+      Silence( now, "stopping" )
+      fade.stopped_at = now
+      return
+    end
+  end
+
+  if fade.phase == "fade" then
+    local progress = ( now - fade.start ) / fade.duration
+    if progress < 1 then
+      SetMasterVolume( fade.vol * 10 ^ ( FADE_FLOOR_DB * progress / 20 ) )
+    else
+      Silence( now, "silence" )
+    end
+
+  elseif fade.phase == "silence" then
+    if now - fade.since >= FADE_SILENCE then
+      reaper.OnStopButtonEx( fade.proj )
+      fade.phase, fade.since = "stopping", now
+    end
+
+  elseif fade.phase == "stopping" then
+    -- REAPER stops asynchronously: right after OnStopButtonEx it still reports "playing"
+    if not playing then
+      fade.stopped_at = fade.stopped_at or now
+      if now - fade.stopped_at >= FADE_RESTORE then RestoreVolume() end
+    elseif fade.stopped_at then
+      RestoreVolume() -- it had stopped and is playing again: volume back now
+    elseif now - fade.since >= FADE_STOP_TIMEOUT then
+      RestoreVolume() -- never stopped: don't leave the master silent
+    end
+  end
 end
 
 function CheckFadeRequest( now )
@@ -332,7 +379,7 @@ SetToggle( 1 )
 reaper.SetExtState( "XR_Lyrics", "running", "1", false )
 reaper.DeleteExtState( "XR_Lyrics", "fade_stop", false ) -- an old request must not fade now
 reaper.atexit( function()
-  if fade then EndFade( false ) end -- stopped in the middle of a fade: volume back
+  if fade then RestoreVolume() end -- script stopped in the middle of a fade: volume back
   reaper.SetExtState( "XR_Lyrics", "running", "0", false )
   SetToggle( 0 )
 end )
