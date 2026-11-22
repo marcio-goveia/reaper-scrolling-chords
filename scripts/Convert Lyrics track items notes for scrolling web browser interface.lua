@@ -10,11 +10,15 @@
  * Original Repository URI: https://github.com/X-Raym/REAPER-ReaScripts
  * Licence: GPL v3
  * REAPER: 5.0
- * Version: 1.7
+ * Version: 1.8
 --]]
 
 --[[
  * Changelog:
+ * v1.8
+  + Fade out and stop, asked by the web page (ExtState XR_Lyrics/fade_stop = seconds):
+    fades the master volume, stops, then puts the volume back
+  + ExtState XR_Lyrics/running, so the page knows the fade is available
  * v1.7
   + Background script: follows the active project tab and republishes when the project changes
   + Toggle action: running it again stops it (toolbar button state)
@@ -41,6 +45,8 @@
 TRACK_NAME = "lyrics" -- compared in lowercase, ignoring leading/trailing spaces
 CHECK_EVERY = 1     -- seconds: full re-read, for edits that don't change the project state count
 IPS_EVERY = 60      -- seconds: re-detect the network IPs (Wi-Fi changed...)
+FADE_FLOOR_DB = -60 -- the fade goes from the master volume down to this, then playback stops
+FADE_MAX = 30       -- seconds, longest fade accepted from the page
 
 ------------------------------------------------------------------
 -- Host IP: the web page can't know the computer's LAN IP when it is opened
@@ -236,6 +242,42 @@ function BuildJSON( proj, proj_file )
 end
 
 ------------------------------------------------------------------
+-- Fade out and stop (asked by the page with ExtState XR_Lyrics/fade_stop = seconds)
+-- The fade is even in dB: from the master volume down to FADE_FLOOR_DB.
+------------------------------------------------------------------
+
+local fade = nil -- { proj, master, vol, start, duration } while fading
+
+function StartFade( seconds, now )
+  local proj = reaper.EnumProjects( -1 )
+  if reaper.GetPlayStateEx( proj ) ~= 1 then return end -- only while playing (not paused or recording)
+  local master = reaper.GetMasterTrack( proj )
+  fade = { proj = proj, master = master, vol = reaper.GetMediaTrackInfo_Value( master, "D_VOL" ),
+           start = now, duration = seconds }
+end
+
+function EndFade( stop )
+  if stop then reaper.OnStopButtonEx( fade.proj ) end
+  reaper.SetMediaTrackInfo_Value( fade.master, "D_VOL", fade.vol ) -- volume back, after stopping
+  fade = nil
+end
+
+function FadeStep( now )
+  if reaper.GetPlayStateEx( fade.proj ) & 1 == 0 then return EndFade( false ) end -- stopped meanwhile
+  local progress = ( now - fade.start ) / fade.duration
+  if progress >= 1 then return EndFade( true ) end
+  reaper.SetMediaTrackInfo_Value( fade.master, "D_VOL", fade.vol * 10 ^ ( FADE_FLOOR_DB * progress / 20 ) )
+end
+
+function CheckFadeRequest( now )
+  local request = reaper.GetExtState( "XR_Lyrics", "fade_stop" )
+  if request == "" then return end
+  reaper.DeleteExtState( "XR_Lyrics", "fade_stop", false )
+  local seconds = tonumber( request )
+  if seconds and not fade then StartFade( math.min( math.max( seconds, 0.1 ), FADE_MAX ), now ) end
+end
+
+------------------------------------------------------------------
 -- Background loop
 ------------------------------------------------------------------
 
@@ -244,6 +286,9 @@ local last = { json = nil, ips = nil, proj = nil, file = nil, count = nil, check
 function Loop()
   local now = reaper.time_precise()
   local changed = false
+
+  CheckFadeRequest( now )
+  if fade then FadeStep( now ) end
 
   if now - last.ips_check >= IPS_EVERY then
     last.ips_check = now
@@ -284,5 +329,11 @@ end
 -- REAPER 7.03+: running the action again stops the script, without asking
 if reaper.set_action_options then reaper.set_action_options( 1 ) end
 SetToggle( 1 )
-reaper.atexit( function() SetToggle( 0 ) end )
+reaper.SetExtState( "XR_Lyrics", "running", "1", false )
+reaper.DeleteExtState( "XR_Lyrics", "fade_stop", false ) -- an old request must not fade now
+reaper.atexit( function()
+  if fade then EndFade( false ) end -- stopped in the middle of a fade: volume back
+  reaper.SetExtState( "XR_Lyrics", "running", "0", false )
+  SetToggle( 0 )
+end )
 reaper.defer( Loop )

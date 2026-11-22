@@ -207,7 +207,7 @@ ul li:active {
 }
 
 /* before a song is loaded, only the share button is shown */
-body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
+body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords, body:not(:has(.lyrics)) #tr-fade {
 	display: none;
 }
 
@@ -418,7 +418,7 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
 	opacity: 0.8;
 }
 
-#transpose #tr-chords {
+#transpose #tr-chords, #transpose #tr-fade {
 	padding: 3px 10px;
 	border: 1px solid #555555;
 	border-radius: 999px;
@@ -428,6 +428,24 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
 .hide-chords #transpose #tr-chords {
 	color: #666666;
 	text-decoration: line-through;
+}
+
+/* Fade: off = Space stops at once (grey); on = Space fades out, then stops (orange) */
+#transpose #tr-fade {
+	color: #666666;
+}
+
+.fade-stop #transpose #tr-fade {
+	color: #ea8400;
+	border-color: #ea8400;
+}
+
+.fading #transpose #tr-fade {
+	animation: fading 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes fading {
+	to { opacity: 0.3; }
 }
 
 /* key menu: all 12 keys from C, opened by clicking the key name */
@@ -558,6 +576,7 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
 		</button>
 	</span>
 	<button id="tr-chords" type="button" data-i18n="tr.chords" data-i18n-title="tr.chordsTitle" title="Show/hide chords (C key)">Chords</button>
+	<button id="tr-fade" type="button" data-i18n="tr.fade" data-i18n-title="tr.fadeTitle" title="Space key: fade out before stopping (F key)" aria-pressed="false">Fade</button>
 	<button id="tr-share" class="tr-round" type="button" data-i18n-title="tr.shareTitle" data-i18n-aria="tr.share" title="Share this page (QR code)" aria-label="Share">
 		<svg viewBox="0 0 24 24"><circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="M8.7 10.7l6.6-3.9M8.7 13.3l6.6 3.9"/></svg>
 	</button>
@@ -594,6 +613,10 @@ const settings = {
 };
 
 let hideChords = searchParams.has( "nochords" ); // lyrics only, for singers
+const FADE_TIME = parseFloat( searchParams.get( "fadetime" ) ) || 4; // seconds
+let playstate = 0;          // from REAPER's TRANSPORT reply
+let scriptRunning = false;  // the Lua background script does the fade
+let fading = false;         // fade asked, until playback stops
 const initialTranspose = ( parseInt( searchParams.get( "transpose" ) ) || 0 ) % 12; // semitones
 let transpose = initialTranspose;
 let useFlats = false;  // decided from the target key
@@ -628,6 +651,8 @@ const I18N = {
 		"tr.keyTitle": "Choose the key (0 key goes back to the original)",
 		"tr.chords": "Chords",
 		"tr.chordsTitle": "Show/hide chords (C key)",
+		"tr.fade": "Fade",
+		"tr.fadeTitle": "Space key: fade out before stopping (F key)",
 		"tr.share": "Share",
 		"tr.shareTitle": "Share this page (QR code)",
 		"menu.original": "Original key",
@@ -665,6 +690,8 @@ const I18N = {
 		"tr.keyTitle": "Escolher o tom (tecla 0 volta ao original)",
 		"tr.chords": "Acordes",
 		"tr.chordsTitle": "Mostrar/esconder acordes (tecla C)",
+		"tr.fade": "Fade",
+		"tr.fadeTitle": "Barra de espaço: fade out antes de parar (tecla F)",
 		"tr.share": "Compartilhar",
 		"tr.shareTitle": "Compartilhar esta página (QR code)",
 		"menu.original": "Tom original",
@@ -702,6 +729,8 @@ const I18N = {
 		"tr.keyTitle": "Elegir el tono (la tecla 0 vuelve al original)",
 		"tr.chords": "Acordes",
 		"tr.chordsTitle": "Mostrar/ocultar acordes (tecla C)",
+		"tr.fade": "Fade",
+		"tr.fadeTitle": "Barra espaciadora: fade out antes de detener (tecla F)",
 		"tr.share": "Compartir",
 		"tr.shareTitle": "Compartir esta página (código QR)",
 		"menu.original": "Tono original",
@@ -1262,13 +1291,14 @@ document.addEventListener( "keydown", e => {
 	if( e.target.closest( "input, textarea" ) || isShareOpen() ) return; // typing the URL: no shortcuts
 	if( e.code === "Space" ) {
 		e.preventDefault();
-		wwr_req( "40044" ); // Transport: Play/stop
+		playStop();
 	}
 	else if( e.key === "Escape" ) closeKeyMenu();
 	else if( e.key === "+" || e.key === "=" ) setTranspose( transpose + 1 );
 	else if( e.key === "-" ) setTranspose( transpose - 1 );
 	else if( e.key === "0" ) setTranspose( 0 );
 	else if( e.key.toLowerCase() === "c" ) setHideChords( !hideChords );
+	else if( e.key.toLowerCase() === "f" ) setFadeStop( !fadeStop );
 });
 
 const buttons = {
@@ -1276,6 +1306,7 @@ const buttons = {
 	"tr-up":     () => setTranspose( transpose + 1 ),
 	"tr-value":  () => isMenuOpen() ? closeKeyMenu() : openKeyMenu(),
 	"tr-chords": () => setHideChords( !hideChords ),
+	"tr-fade":   () => setFadeStop( !fadeStop ),
 	"tr-share":  () => openShare(),
 };
 for( const [ id, action ] of Object.entries( buttons ) ) {
@@ -1310,6 +1341,41 @@ const storage = {
 };
 
 const pageIsLocal = () => isLocalAddress( location.href );
+
+// ---------- Play / Stop, with optional fade out ----------
+
+// Saved per device. ?fadeout in the URL turns it on.
+const FADE_KEY = "scrollingChords.fadeStop";
+let fadeStop = searchParams.has( "fadeout" ) || storage.get( FADE_KEY ) === "1";
+
+function setFadeStop( value ) {
+	fadeStop = value;
+	storage.set( FADE_KEY, value ? "1" : "0" );
+	updateFadeButton();
+}
+
+function updateFadeButton() {
+	document.body.classList.toggle( "fade-stop", fadeStop );
+	document.getElementById( "tr-fade" ).setAttribute( "aria-pressed", String( fadeStop ) );
+}
+
+function setFading( value ) {
+	fading = value;
+	document.body.classList.toggle( "fading", value );
+}
+
+// Space key. With Fade on and while playing, the Lua script fades the master out, stops and
+// puts the volume back. Without the script, paused, recording or during a fade (2nd press):
+// REAPER's Play/Stop, at once.
+function playStop() {
+	if( fadeStop && scriptRunning && playstate === 1 && !fading ) {
+		wwr_req( "SET/EXTSTATE/XR_Lyrics/fade_stop/" + FADE_TIME );
+		setFading( true );
+	}
+	else wwr_req( "40044" ); // Transport: Play/stop
+}
+
+updateFadeButton();
 
 // Page address without options:
 // 1. page opened through the network (phone, tablet...): its own address is already right;
@@ -1437,6 +1503,7 @@ function wwr_onreply( results ) {
 				renderSong();
 				if( newSong ) window.scrollTo( 0, 0 );
 			}
+			else if( tok[2] === "running" ) scriptRunning = tok[3] === "1";
 			else if( tok[2] === "host_ips" ) {
 				hostIps = ( tok[3] ?? "" ).split( "," ).filter( Boolean );
 				if( !hostIps.includes( selectedIp ) ) selectedIp = null;
@@ -1446,8 +1513,9 @@ function wwr_onreply( results ) {
 
 		// TRANSPORT \t playstate \t position_seconds \t isRepeatOn \t position_string \t position_string_beats
 		else if( tok[0] === "TRANSPORT" ) {
-			const playstate = parseInt( tok[1] );
+			playstate = parseInt( tok[1] );
 			const time = parseFloat( tok[2] );
+			if( fading && playstate !== 1 ) setFading( false ); // the fade ended (or was stopped)
 			playstateElm.style.background = PLAYSTATE_COLORS[playstate];
 			if( !song.entry ) continue;
 
@@ -1461,7 +1529,7 @@ function wwr_onreply( results ) {
 }
 
 wwr_start();
-wwr_req_recur( "GET/EXTSTATE/XR_Lyrics/need_refresh;TRANSPORT", 10 );
+wwr_req_recur( "GET/EXTSTATE/XR_Lyrics/need_refresh;GET/EXTSTATE/XR_Lyrics/running;TRANSPORT", 10 );
 </script>
 
 </body>
