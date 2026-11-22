@@ -10,11 +10,14 @@
  * Original Repository URI: https://github.com/X-Raym/REAPER-ReaScripts
  * Licence: GPL v3
  * REAPER: 5.0
- * Version: 1.9
+ * Version: 2.0
 --]]
 
 --[[
  * Changelog:
+ * v2.0
+  + Publishes the open project tabs (ExtState XR_Lyrics/tabs) and switches tabs when the page asks
+    (ExtState XR_Lyrics/select_tab = 1, 2, 3...), only while stopped
  * v1.9
   # Fade: the volume went back before the audio had really stopped. Now: fade, silence (volume 0),
     stop, wait for REAPER to stop and its buffers to empty, then put the volume back
@@ -325,10 +328,41 @@ function CheckFadeRequest( now )
 end
 
 ------------------------------------------------------------------
+-- Project tabs: list for the page, and switching asked by the page
+------------------------------------------------------------------
+
+-- { "active": 1, "names": [ "Song A", "Song B" ] }: active is 1-based, "" = never saved
+function TabsJSON()
+  local names, active, i = {}, 0, 0
+  local current = reaper.EnumProjects( -1 )
+  while true do
+    local proj = reaper.EnumProjects( i )
+    if not proj then break end
+    local name = reaper.GetProjectName( proj ):gsub( "%.[Rr][Pp][Pp]$", "" )
+    table.insert( names, "\"" .. JsonEscape( name ) .. "\"" )
+    if proj == current then active = i + 1 end
+    i = i + 1
+  end
+  return "{ \"active\": " .. active .. ", \"names\": [" .. table.concat( names, ", " ) .. "] }"
+end
+
+-- Only while stopped: switching tabs during playback could stop the song or keep it playing
+-- in the background, depending on REAPER's preferences.
+function CheckTabRequest()
+  local request = reaper.GetExtState( "XR_Lyrics", "select_tab" )
+  if request == "" then return end
+  reaper.DeleteExtState( "XR_Lyrics", "select_tab", false )
+  local n = tonumber( request )
+  if not n or fade or reaper.GetPlayState() ~= 0 then return end
+  local proj = reaper.EnumProjects( math.floor( n ) - 1 )
+  if proj then reaper.SelectProjectInstance( proj ) end
+end
+
+------------------------------------------------------------------
 -- Background loop
 ------------------------------------------------------------------
 
-local last = { json = nil, ips = nil, proj = nil, file = nil, count = nil, check = -math.huge, ips_check = -math.huge }
+local last = { json = nil, tabs = nil, ips = nil, proj = nil, file = nil, count = nil, check = -math.huge, ips_check = -math.huge }
 
 function Loop()
   local now = reaper.time_precise()
@@ -336,6 +370,7 @@ function Loop()
 
   CheckFadeRequest( now )
   if fade then FadeStep( now ) end
+  CheckTabRequest()
 
   if now - last.ips_check >= IPS_EVERY then
     last.ips_check = now
@@ -358,6 +393,12 @@ function Loop()
       reaper.SetExtState( "XR_Lyrics", "json", json, false )
       changed = true
     end
+    local tabs = TabsJSON()
+    if tabs ~= last.tabs then
+      last.tabs = tabs
+      reaper.SetExtState( "XR_Lyrics", "tabs", tabs, false )
+      changed = true
+    end
   end
 
   if changed then reaper.SetExtState( "XR_Lyrics", "need_refresh", "true", false ) end
@@ -377,7 +418,8 @@ end
 if reaper.set_action_options then reaper.set_action_options( 1 ) end
 SetToggle( 1 )
 reaper.SetExtState( "XR_Lyrics", "running", "1", false )
-reaper.DeleteExtState( "XR_Lyrics", "fade_stop", false ) -- an old request must not fade now
+reaper.DeleteExtState( "XR_Lyrics", "fade_stop", false ) -- old requests must not act now
+reaper.DeleteExtState( "XR_Lyrics", "select_tab", false )
 reaper.atexit( function()
   if fade then RestoreVolume() end -- script stopped in the middle of a fade: volume back
   reaper.SetExtState( "XR_Lyrics", "running", "0", false )

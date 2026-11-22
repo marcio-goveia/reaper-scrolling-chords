@@ -504,6 +504,109 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords, body:not(
 	transform: translateX(-50%);
 }
 
+/* ---------- Songs (REAPER project tabs) ---------- */
+
+#tr-songs-wrap {
+	position: relative;
+	display: flex;
+}
+
+/* only with 2 or more tabs open */
+body:not(.has-tabs) #tr-songs-wrap {
+	display: none;
+}
+
+#songs-menu {
+	position: absolute;
+	top: calc(100% + 10px);
+	left: -6px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: max-content;
+	min-width: 220px;
+	max-width: min(360px, calc(100vw - 24px));
+	padding: 6px;
+	border-radius: 12px;
+	background: rgba(20, 20, 20, 0.95);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+	font-size: 17px;
+}
+
+#songs-menu[hidden] {
+	display: none;
+}
+
+#transpose #songs-menu button {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 40px;
+	padding: 0 12px 0 8px;
+	border-radius: 8px;
+	color: #c8c8c8;
+	text-align: left;
+}
+
+#transpose #songs-menu button:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.08);
+	color: #ffffff;
+}
+
+#transpose #songs-menu button.selected {
+	background: #ea8400;
+	color: #000000;
+}
+
+#transpose #songs-menu button:disabled:not(.selected) {
+	opacity: 0.4;
+	cursor: default;
+}
+
+/* number = keyboard shortcut */
+#songs-menu .song-n {
+	min-width: 1.4em;
+	font-size: 0.8em;
+	opacity: 0.7;
+	text-align: center;
+}
+
+#songs-menu .song-name {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#songs-menu .song-name.untitled {
+	font-style: italic;
+}
+
+#songs-hint {
+	padding: 4px 8px 6px;
+	color: #8a8a8a;
+	font-size: 14px;
+}
+
+/* short message at the bottom of the screen */
+#toast {
+	position: fixed;
+	left: 50%;
+	bottom: 24px;
+	z-index: 400;
+	padding: 8px 16px;
+	border-radius: 999px;
+	background: rgba(20, 20, 20, 0.9);
+	color: #c8c8c8;
+	font: 16px sans-serif;
+	transform: translateX(-50%);
+	transition: opacity ease 0.3s;
+	pointer-events: none;
+}
+
+#toast:not(.show) {
+	opacity: 0;
+}
+
 /* ---------- Phones ---------- */
 
 @media (max-width: 600px), (max-height: 500px) {
@@ -524,6 +627,17 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords, body:not(
 	}
 	#transpose #tr-value {
 		min-height: 40px;
+	}
+	#transpose #tr-fade {
+		display: none; /* the Fade is for the Space key: no keyboard on phones */
+	}
+	#songs-menu {
+		position: fixed; /* relative to the bar (its backdrop-filter): as wide as the bar, never off screen */
+		top: 56px;
+		left: 12px;
+		right: 12px;
+		width: auto;
+		max-width: none;
 	}
 	#playstate {
 		height: 8px;
@@ -562,7 +676,14 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords, body:not(
 	</div>
 </div>
 <div id="playstate"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 <div id="transpose">
+	<span id="tr-songs-wrap">
+		<button id="tr-songs" class="tr-round" type="button" data-i18n-title="songs.title" data-i18n-aria="songs.label" title="Songs: REAPER project tabs (keys 1 to 9)" aria-label="Songs" aria-haspopup="menu" aria-expanded="false">
+			<svg viewBox="0 0 24 24"><path d="M4 6.5h11M4 11.5h11M4 16.5h6"/><circle cx="16.5" cy="17.5" r="2"/><path d="M18.5 17.5V10l2.5 1"/></svg>
+		</button>
+		<div id="songs-menu" role="menu" hidden></div>
+	</span>
 	<span id="tr-group">
 		<button id="tr-down" class="tr-round" type="button" data-i18n-title="tr.downTitle" data-i18n-aria="tr.down" title="Half step down (- key)" aria-label="Half step down">
 			<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M7.5 12h9"/></svg>
@@ -653,6 +774,10 @@ const I18N = {
 		"tr.chordsTitle": "Show/hide chords (C key)",
 		"tr.fade": "Fade",
 		"tr.fadeTitle": "Space key: fade out before stopping (F key)",
+		"songs.label": "Songs",
+		"songs.title": "Songs: REAPER project tabs (keys 1 to 9)",
+		"songs.untitled": "Untitled project",
+		"songs.stopFirst": "Stop playback to change the song",
 		"tr.share": "Share",
 		"tr.shareTitle": "Share this page (QR code)",
 		"menu.original": "Original key",
@@ -692,6 +817,10 @@ const I18N = {
 		"tr.chordsTitle": "Mostrar/esconder acordes (tecla C)",
 		"tr.fade": "Fade",
 		"tr.fadeTitle": "Barra de espaço: fade out antes de parar (tecla F)",
+		"songs.label": "Músicas",
+		"songs.title": "Músicas: abas de projeto do REAPER (teclas 1 a 9)",
+		"songs.untitled": "Projeto sem nome",
+		"songs.stopFirst": "Pare a reprodução para trocar de música",
 		"tr.share": "Compartilhar",
 		"tr.shareTitle": "Compartilhar esta página (QR code)",
 		"menu.original": "Tom original",
@@ -731,6 +860,10 @@ const I18N = {
 		"tr.chordsTitle": "Mostrar/ocultar acordes (tecla C)",
 		"tr.fade": "Fade",
 		"tr.fadeTitle": "Barra espaciadora: fade out antes de detener (tecla F)",
+		"songs.label": "Canciones",
+		"songs.title": "Canciones: pestañas de proyecto de REAPER (teclas 1 a 9)",
+		"songs.untitled": "Proyecto sin nombre",
+		"songs.stopFirst": "Detén la reproducción para cambiar de canción",
 		"tr.share": "Compartir",
 		"tr.shareTitle": "Compartir esta página (código QR)",
 		"menu.original": "Tono original",
@@ -1252,6 +1385,7 @@ function buildKeyMenu() {
 }
 
 function openKeyMenu() {
+	closeSongsMenu();
 	buildKeyMenu();
 	trMenuElm.hidden = false;
 	trValueElm.setAttribute( "aria-expanded", "true" );
@@ -1272,7 +1406,11 @@ trMenuElm.addEventListener( "click", e => {
 // ---------- Events ----------
 
 document.addEventListener( "click", e => {
-	// a click outside the open key menu only closes it
+	// a click outside an open menu only closes it
+	if( isSongsMenuOpen() ) {
+		if( !e.target.closest( "#tr-songs-wrap" ) ) closeSongsMenu();
+		return;
+	}
 	if( isMenuOpen() ) {
 		if( !e.target.closest( "#tr-key" ) ) closeKeyMenu();
 		return;
@@ -1288,12 +1426,14 @@ document.addEventListener( "click", e => {
 
 document.addEventListener( "keydown", e => {
 	if( e.key === "Escape" && isShareOpen() ) return closeShare();
+	if( e.ctrlKey || e.altKey || e.metaKey ) return; // browser shortcuts (Ctrl+1 = first browser tab...)
 	if( e.target.closest( "input, textarea" ) || isShareOpen() ) return; // typing the URL: no shortcuts
 	if( e.code === "Space" ) {
 		e.preventDefault();
 		playStop();
 	}
-	else if( e.key === "Escape" ) closeKeyMenu();
+	else if( e.key === "Escape" ) { closeKeyMenu(); closeSongsMenu(); }
+	else if( e.key >= "1" && e.key <= "9" ) selectTab( parseInt( e.key ) );
 	else if( e.key === "+" || e.key === "=" ) setTranspose( transpose + 1 );
 	else if( e.key === "-" ) setTranspose( transpose - 1 );
 	else if( e.key === "0" ) setTranspose( 0 );
@@ -1308,6 +1448,7 @@ const buttons = {
 	"tr-chords": () => setHideChords( !hideChords ),
 	"tr-fade":   () => setFadeStop( !fadeStop ),
 	"tr-share":  () => openShare(),
+	"tr-songs":  () => isSongsMenuOpen() ? closeSongsMenu() : openSongsMenu(),
 };
 for( const [ id, action ] of Object.entries( buttons ) ) {
 	document.getElementById( id ).addEventListener( "click", e => {
@@ -1376,6 +1517,71 @@ function playStop() {
 }
 
 updateFadeButton();
+
+// ---------- Songs: REAPER project tabs ----------
+// The Lua script publishes the open tabs and switches tab when asked (only while stopped).
+
+const songsMenuElm = document.getElementById( "songs-menu" );
+const songsBtnElm = document.getElementById( "tr-songs" );
+const toastElm = document.getElementById( "toast" );
+let tabs = { active: 0, names: [] };
+let toastTimer;
+
+const isSongsMenuOpen = () => !songsMenuElm.hidden;
+const canSwitchTab = () => scriptRunning && playstate === 0 && !fading;
+
+function showToast( text ) {
+	toastElm.textContent = text;
+	toastElm.classList.add( "show" );
+	clearTimeout( toastTimer );
+	toastTimer = setTimeout( () => toastElm.classList.remove( "show" ), 2500 );
+}
+
+function selectTab( n ) {
+	if( !scriptRunning || n > tabs.names.length ) return;
+	if( n === tabs.active ) return closeSongsMenu();
+	if( !canSwitchTab() ) return showToast( t( "songs.stopFirst" ) );
+	wwr_req( "SET/EXTSTATE/XR_Lyrics/select_tab/" + n );
+	closeSongsMenu();
+}
+
+function buildSongsMenu() {
+	const canSwitch = canSwitchTab();
+	const items = tabs.names.map( ( name, i ) => {
+		const n = i + 1;
+		const isActive = n === tabs.active;
+		const label = name ? escapeHtml( name ) : escapeHtml( t( "songs.untitled" ) );
+		return `<button type="button" role="menuitem" data-tab="${ n }" class="${ isActive ? "selected" : "" }"`
+			+ `${ canSwitch || isActive ? "" : " disabled" }${ isActive ? ' aria-current="true"' : "" }>`
+			+ `<span class="song-n">${ n <= 9 ? n : "" }</span>`
+			+ `<span class="song-name${ name ? "" : " untitled" }">${ label }</span></button>`;
+	});
+	const hint = canSwitch ? "" : `<div id="songs-hint">${ escapeHtml( t( "songs.stopFirst" ) ) }</div>`;
+	songsMenuElm.innerHTML = hint + items.join( "" );
+}
+
+function openSongsMenu() {
+	closeKeyMenu();
+	buildSongsMenu();
+	songsMenuElm.hidden = false;
+	songsBtnElm.setAttribute( "aria-expanded", "true" );
+}
+
+function closeSongsMenu() {
+	songsMenuElm.hidden = true;
+	songsBtnElm.setAttribute( "aria-expanded", "false" );
+}
+
+songsMenuElm.addEventListener( "click", e => {
+	const item = e.target.closest( "button[data-tab]" );
+	if( item && !item.disabled ) selectTab( parseInt( item.dataset.tab ) );
+});
+
+function setTabs( value ) {
+	tabs = value;
+	document.body.classList.toggle( "has-tabs", scriptRunning && tabs.names.length > 1 );
+	if( isSongsMenuOpen() ) buildSongsMenu();
+}
 
 // Page address without options:
 // 1. page opened through the network (phone, tablet...): its own address is already right;
@@ -1479,6 +1685,9 @@ shareUrlElm.addEventListener( "input", () => {
 
 // ---------- REAPER communication ----------
 
+// REAPER escapes backslashes and line breaks in ExtState values of its replies
+const fromReaper = value => value.replaceAll( /\\n/gm, "\n" ).replaceAll( /\\\\/gm, "\\" );
+
 // Called by main.js with REAPER's reply. One line per request, fields separated by tabs.
 function wwr_onreply( results ) {
 	for( const row of results.split( "\n" ) ) {
@@ -1487,12 +1696,11 @@ function wwr_onreply( results ) {
 
 		if( tok[1] === "XR_Lyrics" ) { // EXTSTATE \t section \t key \t value
 			if( tok[2] === "need_refresh" && ( tok[3] === "true" || firstRun ) ) {
-				wwr_req( "GET/EXTSTATE/XR_Lyrics/json;GET/EXTSTATE/XR_Lyrics/host_ips;SET/EXTSTATE/XR_Lyrics/need_refresh/false" );
+				wwr_req( "GET/EXTSTATE/XR_Lyrics/json;GET/EXTSTATE/XR_Lyrics/tabs;GET/EXTSTATE/XR_Lyrics/host_ips;SET/EXTSTATE/XR_Lyrics/need_refresh/false" );
 				firstRun = false;
 			}
 			else if( tok[2] === "json" && tok[3] !== "" ) {
-				const text = tok[3].replaceAll( /\\n/gm, "\n" ).replaceAll( /\\\\/gm, "\\" );
-				song = JSON.parse( text );
+				song = JSON.parse( fromReaper( tok[3] ) );
 				songKey = findSongKey( song.entry );
 				const newSong = song.project !== lastProject; // another project tab: start from its own key
 				if( newSong ) {
@@ -1503,7 +1711,14 @@ function wwr_onreply( results ) {
 				renderSong();
 				if( newSong ) window.scrollTo( 0, 0 );
 			}
-			else if( tok[2] === "running" ) scriptRunning = tok[3] === "1";
+			else if( tok[2] === "running" ) {
+				const running = tok[3] === "1";
+				if( running !== scriptRunning ) { scriptRunning = running; setTabs( tabs ); }
+			}
+			else if( tok[2] === "tabs" && tok[3] ) {
+				try { setTabs( JSON.parse( fromReaper( tok[3] ) ) ); }
+				catch { /* broken value: keep the previous list */ }
+			}
 			else if( tok[2] === "host_ips" ) {
 				hostIps = ( tok[3] ?? "" ).split( "," ).filter( Boolean );
 				if( !hostIps.includes( selectedIp ) ) selectedIp = null;
@@ -1513,7 +1728,9 @@ function wwr_onreply( results ) {
 
 		// TRANSPORT \t playstate \t position_seconds \t isRepeatOn \t position_string \t position_string_beats
 		else if( tok[0] === "TRANSPORT" ) {
+			const wasStopped = playstate === 0;
 			playstate = parseInt( tok[1] );
+			if( isSongsMenuOpen() && wasStopped !== ( playstate === 0 ) ) buildSongsMenu(); // enable/disable
 			const time = parseFloat( tok[2] );
 			if( fading && playstate !== 1 ) setFading( false ); // the fade ended (or was stopped)
 			playstateElm.style.background = PLAYSTATE_COLORS[playstate];

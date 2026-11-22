@@ -17,7 +17,8 @@ Baseada nos scripts e na interface *Scrolling Lyrics / Scrolling Chords* do [X-R
 - **Tom detectado automaticamente** a partir de todos os acordes da música, quando não há `{key}`.
 - **Acordes opcionais** entre parênteses, como `(Em)`.
 - **Modo "só letra"** para quem canta: tecla `C` ou `?nochords`.
-- **Fade out na barra de espaço:** com o botão **Fade** ligado, a barra de espaço faz um fade out no volume do master, para a reprodução e devolve o volume. Desligado, a barra de espaço para na hora, como no REAPER. A escolha fica salva em cada dispositivo.
+- **Músicas = abas de projeto do REAPER:** o botão de músicas lista as abas abertas, e as teclas `1` a `9` trocam para a aba 1 a 9, sem precisar ir até o REAPER. Só com a reprodução parada, para uma tecla apertada sem querer não interromper uma música.
+- **Fade out na barra de espaço:** com o botão **Fade** ligado, a barra de espaço faz um fade out no volume do master, para a reprodução e devolve o volume. Desligado, a barra de espaço para na hora, como no REAPER. A escolha fica salva em cada dispositivo. No celular (sem barra de espaço) o botão fica escondido.
 - **Ajuste à tela:** a fonte se adapta para a linha mais larga caber, em pé ou deitado, sem desalinhar os acordes.
 - **Compartilhar por QR code**, com o IP da rede detectado pelo script. Funciona sem internet.
 - **Inglês, português e espanhol**, de acordo com o idioma do navegador de cada dispositivo.
@@ -89,13 +90,14 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 | `Espaço` | Play / Stop no REAPER (com o **Fade** ligado: fade out e depois para; aperte de novo para parar na hora) |
 | `+` / `-` | Sobe / desce meio tom |
 | `0` | Volta ao tom original |
+| `1` … `9` | Troca para a aba de projeto 1 … 9 (só com a reprodução parada) |
 | `C` | Mostra / esconde os acordes |
 | `F` | Liga / desliga o **Fade** |
 | `Esc` | Fecha menus |
 
 ## Como funciona
 
-O script Lua roda em segundo plano. Ele observa a aba de projeto ativa e o histórico de desfazer, e relê tudo uma vez por segundo para pegar mudanças que não aparecem no histórico. Ele lê as notas dos itens da track `Lyrics` e as publica como JSON na ExtState `XR_Lyrics/json`, só quando algo mudou. Quando o projeto muda, a página volta ao tom original. Ele também publica os IPs de rede do computador em `XR_Lyrics/host_ips`. A página web pede esses dados ao REAPER pela API da interface web (`main.js`, que vem com o REAPER) e acompanha a posição da reprodução para destacar o trecho atual. Para o fade, a página grava a duração na ExtState `XR_Lyrics/fade_stop`: o script baixa o volume da track master (de forma uniforme em dB, até -60 dB e depois silêncio), para a reprodução, espera o áudio parar de fato e restaura o volume. Se o script não estiver rodando, a barra de espaço só para.
+O script Lua roda em segundo plano. Ele observa a aba de projeto ativa e o histórico de desfazer, e relê tudo uma vez por segundo para pegar mudanças que não aparecem no histórico. Ele lê as notas dos itens da track `Lyrics` e as publica como JSON na ExtState `XR_Lyrics/json`, só quando algo mudou. Quando o projeto muda, a página volta ao tom original. Ele também publica as abas de projeto abertas em `XR_Lyrics/tabs` e os IPs de rede do computador em `XR_Lyrics/host_ips`. Para trocar de aba, a página grava o número da aba em `XR_Lyrics/select_tab`. A página web pede esses dados ao REAPER pela API da interface web (`main.js`, que vem com o REAPER) e acompanha a posição da reprodução para destacar o trecho atual. Para o fade, a página grava a duração na ExtState `XR_Lyrics/fade_stop`: o script baixa o volume da track master (de forma uniforme em dB, até -60 dB e depois silêncio), para a reprodução, espera o áudio parar de fato e restaura o volume. Se o script não estiver rodando, a barra de espaço só para.
 
 ## Créditos e licença
 

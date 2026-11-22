@@ -17,7 +17,8 @@ Basada en los scripts y la interfaz *Scrolling Lyrics / Scrolling Chords* de [X-
 - **Tono detectado automáticamente** a partir de todos los acordes de la canción, cuando no hay `{key}`.
 - **Acordes opcionales** entre paréntesis, como `(Em)`.
 - **Modo "solo letra"** para quien canta: tecla `C` o `?nochords`.
-- **Fade out con la barra espaciadora:** con el botón **Fade** activado, la barra espaciadora hace un fade out del volumen del master, detiene la reproducción y restaura el volumen. Desactivado, la barra espaciadora detiene al instante, como en REAPER. La elección se guarda en cada dispositivo.
+- **Canciones = pestañas de proyecto de REAPER:** el botón de canciones lista las pestañas abiertas, y las teclas `1` a `9` cambian a la pestaña 1 a 9, sin ir a REAPER. Solo con la reproducción detenida, para que una tecla pulsada por error no interrumpa una canción.
+- **Fade out con la barra espaciadora:** con el botón **Fade** activado, la barra espaciadora hace un fade out del volumen del master, detiene la reproducción y restaura el volumen. Desactivado, la barra espaciadora detiene al instante, como en REAPER. La elección se guarda en cada dispositivo. En el móvil (sin barra espaciadora) el botón está oculto.
 - **Se ajusta a la pantalla:** la fuente se adapta para que quepa la línea más ancha, en vertical u horizontal, sin desalinear los acordes.
 - **Compartir con código QR**, con la IP de la red detectada por el script. Funciona sin internet.
 - **Inglés, portugués y español**, según el idioma del navegador de cada dispositivo.
@@ -89,13 +90,14 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 | `Espacio` | Play / Stop en REAPER (con el **Fade** activado: fade out y luego detiene; pulsa de nuevo para detener al instante) |
 | `+` / `-` | Sube / baja medio tono |
 | `0` | Vuelve al tono original |
+| `1` … `9` | Cambia a la pestaña de proyecto 1 … 9 (solo con la reproducción detenida) |
 | `C` | Muestra / oculta los acordes |
 | `F` | Activa / desactiva el **Fade** |
 | `Esc` | Cierra los menús |
 
 ## Cómo funciona
 
-El script Lua se ejecuta en segundo plano. Observa la pestaña de proyecto activa y el historial de deshacer, y vuelve a leer todo una vez por segundo para detectar cambios que no aparecen en el historial. Lee las notas de los ítems de la pista `Lyrics` y las publica como JSON en el ExtState `XR_Lyrics/json`, solo cuando algo cambió. Cuando cambia el proyecto, la página vuelve al tono original. También publica las IPs de red del equipo en `XR_Lyrics/host_ips`. La página web pide estos datos a REAPER a través de la API de la interfaz web (`main.js`, que viene con REAPER) y sigue la posición de reproducción para resaltar la parte actual. Para el fade, la página escribe la duración en el ExtState `XR_Lyrics/fade_stop`: el script baja el volumen de la pista master (de forma uniforme en dB, hasta -60 dB y luego silencio), detiene la reproducción, espera a que el audio se detenga de verdad y restaura el volumen. Si el script no se está ejecutando, la barra espaciadora solo detiene.
+El script Lua se ejecuta en segundo plano. Observa la pestaña de proyecto activa y el historial de deshacer, y vuelve a leer todo una vez por segundo para detectar cambios que no aparecen en el historial. Lee las notas de los ítems de la pista `Lyrics` y las publica como JSON en el ExtState `XR_Lyrics/json`, solo cuando algo cambió. Cuando cambia el proyecto, la página vuelve al tono original. También publica las pestañas de proyecto abiertas en `XR_Lyrics/tabs` y las IPs de red del equipo en `XR_Lyrics/host_ips`. Para cambiar de pestaña, la página escribe el número de la pestaña en `XR_Lyrics/select_tab`. La página web pide estos datos a REAPER a través de la API de la interfaz web (`main.js`, que viene con REAPER) y sigue la posición de reproducción para resaltar la parte actual. Para el fade, la página escribe la duración en el ExtState `XR_Lyrics/fade_stop`: el script baja el volumen de la pista master (de forma uniforme en dB, hasta -60 dB y luego silencio), detiene la reproducción, espera a que el audio se detenga de verdad y restaura el volumen. Si el script no se está ejecutando, la barra espaciadora solo detiene.
 
 ## Créditos y licencia
 

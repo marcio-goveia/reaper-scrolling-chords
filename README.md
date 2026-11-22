@@ -17,7 +17,8 @@ Based on the *Scrolling Lyrics / Scrolling Chords* scripts and interface by [X-R
 - **Automatic key detection** from all the chords of the song, when there is no `{key}`.
 - **Optional chords** in parentheses, like `(Em)`.
 - **Lyrics-only mode** for singers: `C` key or `?nochords`.
-- **Fade out on Space:** with the **Fade** button on, the Space key fades the master volume out, stops, and puts the volume back. With it off, Space stops at once, as in REAPER. The choice is saved on each device.
+- **Songs = REAPER project tabs:** the songs button lists the open tabs, and the `1` to `9` keys switch to tab 1 to 9, without going to REAPER. Only while stopped, so a key pressed by mistake doesn't interrupt a song.
+- **Fade out on Space:** with the **Fade** button on, the Space key fades the master volume out, stops, and puts the volume back. With it off, Space stops at once, as in REAPER. The choice is saved on each device. On phones (no Space key) the button is hidden.
 - **Fits the screen:** the font adapts so the widest line fits, in portrait or landscape, without misaligning the chords.
 - **Share via QR code**, with the network IP detected by the script. Works without internet.
 - **English, Portuguese and Spanish**, following the browser language of each device.
@@ -89,13 +90,14 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 | `Space` | Play / Stop in REAPER (with **Fade** on: fade out, then stop; press again to stop at once) |
 | `+` / `-` | Half step up / down |
 | `0` | Back to the original key |
+| `1` … `9` | Switch to project tab 1 … 9 (only while stopped) |
 | `C` | Show / hide chords |
 | `F` | Turns **Fade** on / off |
 | `Esc` | Closes menus |
 
 ## How it works
 
-The Lua script runs in the background. It watches the active project tab and its undo history, and re-reads everything once per second for changes the history doesn't show. It reads the notes of the items on the `Lyrics` track and publishes them as JSON in the `XR_Lyrics/json` ExtState, only when something changed. When the project changes, the page goes back to the original key. It also publishes the computer's network IPs in `XR_Lyrics/host_ips`. The web page requests this data from REAPER through the web interface API (`main.js`, which ships with REAPER) and follows the playback position to highlight the current part. For the fade, the page writes the length in the `XR_Lyrics/fade_stop` ExtState: the script fades the master track volume (even in dB, down to -60 dB, then silence), stops, waits for the audio to really stop and restores the volume. If the script isn't running, Space just stops.
+The Lua script runs in the background. It watches the active project tab and its undo history, and re-reads everything once per second for changes the history doesn't show. It reads the notes of the items on the `Lyrics` track and publishes them as JSON in the `XR_Lyrics/json` ExtState, only when something changed. When the project changes, the page goes back to the original key. It also publishes the open project tabs in `XR_Lyrics/tabs` and the computer's network IPs in `XR_Lyrics/host_ips`. To switch tabs, the page writes the tab number in `XR_Lyrics/select_tab`. The web page requests this data from REAPER through the web interface API (`main.js`, which ships with REAPER) and follows the playback position to highlight the current part. For the fade, the page writes the length in the `XR_Lyrics/fade_stop` ExtState: the script fades the master track volume (even in dB, down to -60 dB, then silence), stops, waits for the audio to really stop and restores the volume. If the script isn't running, Space just stops.
 
 ## Credits and license
 
