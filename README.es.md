@@ -43,7 +43,7 @@ Las carpetas de REAPER están en el directorio de recursos (*Options › Show RE
 
 1. Crea una pista llamada **Lyrics** (mayúsculas o minúsculas, da igual).
 2. Para cada parte de la canción, crea un ítem en esa pista y escribe la letra con los acordes en las **notas del ítem**.
-3. Ejecuta el script una vez (o deja que `__startup.lua` lo inicie). Sigue en segundo plano: cambiar de pestaña de proyecto o editar las notas actualiza la página. Ejecutar la acción de nuevo detiene el script (su botón en la barra de herramientas se ilumina mientras se ejecuta).
+3. Ejecuta el script una vez (o deja que `__startup.lua` lo inicie). Sigue en segundo plano: cambiar de pestaña de proyecto o editar las notas actualiza la página. Ejecutar la acción de nuevo detiene el script. Si añades la acción a una barra de herramientas (clic derecho en la barra › *Customize toolbar…*), su botón se ilumina mientras el script se ejecuta.
 4. Abre la interfaz web en el navegador. Para abrirla en otro dispositivo, usa el botón de compartir (código QR).
 
 ### Ejemplo: formato tradicional

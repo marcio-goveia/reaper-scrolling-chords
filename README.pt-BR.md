@@ -43,7 +43,7 @@ As pastas do REAPER ficam no diretório de recursos (*Options › Show REAPER re
 
 1. Crie uma track chamada **Lyrics** (maiúsculas ou minúsculas, tanto faz).
 2. Para cada trecho da música, crie um item nessa track e escreva a letra com os acordes nas **notas do item**.
-3. Rode o script uma vez (ou deixe o `__startup.lua` iniciá-lo). Ele continua em segundo plano: trocar de aba de projeto ou editar as notas atualiza a página. Rodar a action de novo para o script (o botão dele na toolbar fica aceso enquanto ele roda).
+3. Rode o script uma vez (ou deixe o `__startup.lua` iniciá-lo). Ele continua em segundo plano: trocar de aba de projeto ou editar as notas atualiza a página. Rodar a action de novo para o script. Se você puser a action numa toolbar (botão direito na toolbar › *Customize toolbar…*), o botão fica aceso enquanto o script roda.
 4. Abra a interface web no navegador. Para abrir em outro dispositivo, use o botão de compartilhar (QR code).
 
 ### Exemplo: formato tradicional

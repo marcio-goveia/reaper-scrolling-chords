@@ -43,7 +43,7 @@ The REAPER folders are in the resource path (*Options › Show REAPER resource p
 
 1. Create a track named **Lyrics** (upper or lower case, it doesn't matter).
 2. For each part of the song, create an item on that track and write the lyrics with the chords in the **item notes**.
-3. Run the script once (or let `__startup.lua` start it). It keeps running in the background: switching project tabs or editing the notes updates the page. Running the action again stops it (its toolbar button is lit while it runs).
+3. Run the script once (or let `__startup.lua` start it). It keeps running in the background: switching project tabs or editing the notes updates the page. Running the action again stops it. If you add the action to a toolbar (right-click a toolbar › *Customize toolbar…*), its button is lit while the script runs.
 4. Open the web interface in the browser. To open it on another device, use the share button (QR code).
 
 ### Example: traditional format
