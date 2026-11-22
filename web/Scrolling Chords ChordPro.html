@@ -523,7 +523,7 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
 <div id="text">
 	<h1>REAPER Scrolling Chords (ChordPro)</h1>
 	<h2 data-i18n="intro.state">State</h2>
-	<p data-i18n-html="intro.off"><strong>OFF</strong>: Run the companion script to initialize.</p>
+	<p id="intro-state" data-i18n-html="intro.off"><strong>OFF</strong>: Run the companion script to initialize.</p>
 	<h2 data-i18n="intro.installation">Installation</h2>
 	<p data-i18n="intro.installText">Set this page as REAPER web interface, with menu Options › Preferences › Control/OSC/Web.</p>
 	<h2 data-i18n="intro.start">Start</h2>
@@ -538,7 +538,8 @@ body:not(:has(.lyrics)) #tr-group, body:not(:has(.lyrics)) #tr-chords {
 		<ol>
 			<li><span data-i18n-html="intro.script1">In REAPER, load the script with <em>Actions › Show action list › New action › Load ReaScript…</em>:</span><br>
 				<code>Convert Lyrics track items notes for scrolling web browser interface.lua</code></li>
-			<li data-i18n="intro.script2">Run it from the action list (or assign it a shortcut). Run it again whenever you edit the notes.</li>
+			<li data-i18n="intro.script2">Run it once: it keeps running in the background, following the active project tab and your edits.</li>
+			<li data-i18n-html="intro.script3">To start it with REAPER, copy <code>__startup.lua</code> to the REAPER <em>Scripts</em> folder.</li>
 		</ol>
 	</div>
 </div>
@@ -593,10 +594,12 @@ const settings = {
 };
 
 let hideChords = searchParams.has( "nochords" ); // lyrics only, for singers
-let transpose = ( parseInt( searchParams.get( "transpose" ) ) || 0 ) % 12; // semitones
+const initialTranspose = ( parseInt( searchParams.get( "transpose" ) ) || 0 ) % 12; // semitones
+let transpose = initialTranspose;
 let useFlats = false;  // decided from the target key
 let songKey = null;
-let song = {};         // JSON sent by the Lua script: { entry: [ { pos_start, pos_end, text } ] }
+let song = {};         // JSON sent by the Lua script: { project, entry: [ { pos_start, pos_end, text } ] }
+let lastProject;       // song.project of the song on screen: another project = another song
 let paragraphs = [];
 let firstRun = true;
 
@@ -615,7 +618,9 @@ const I18N = {
 		"intro.start2": "Run the companion script to send the lyrics from the item notes of the \"Lyrics\" track to the web interface.",
 		"intro.script": "Companion Script",
 		"intro.script1": "In REAPER, load the script with <em>Actions › Show action list › New action › Load ReaScript…</em>:",
-		"intro.script2": "Run it from the action list (or assign it a shortcut). Run it again whenever you edit the notes.",
+		"intro.script2": "Run it once: it keeps running in the background, following the active project tab and your edits.",
+		"intro.script3": "To start it with REAPER, copy <code>__startup.lua</code> to the REAPER <em>Scripts</em> folder.",
+		"intro.noTrack": "<strong>ON</strong>: the active project has no track named \"Lyrics\" with item notes.",
 		"tr.down": "Half step down",
 		"tr.downTitle": "Half step down (- key)",
 		"tr.up": "Half step up",
@@ -650,7 +655,9 @@ const I18N = {
 		"intro.start2": "Rode o script para enviar à interface web as letras das notas dos itens da track \"Lyrics\".",
 		"intro.script": "Script",
 		"intro.script1": "No REAPER, carregue o script em <em>Actions › Show action list › New action › Load ReaScript…</em>:",
-		"intro.script2": "Rode-o pela lista de ações (ou associe um atalho). Rode de novo sempre que editar as notas.",
+		"intro.script2": "Rode uma vez: ele continua em segundo plano, acompanhando a aba de projeto ativa e as suas edições.",
+		"intro.script3": "Para iniciá-lo junto com o REAPER, copie o <code>__startup.lua</code> para a pasta <em>Scripts</em> do REAPER.",
+		"intro.noTrack": "<strong>LIGADO</strong>: o projeto ativo não tem uma track chamada \"Lyrics\" com notas nos itens.",
 		"tr.down": "Descer meio tom",
 		"tr.downTitle": "Descer meio tom (tecla -)",
 		"tr.up": "Subir meio tom",
@@ -685,7 +692,9 @@ const I18N = {
 		"intro.start2": "Ejecuta el script para enviar a la interfaz web las letras de las notas de los ítems de la pista \"Lyrics\".",
 		"intro.script": "Script",
 		"intro.script1": "En REAPER, carga el script en <em>Actions › Show action list › New action › Load ReaScript…</em>:",
-		"intro.script2": "Ejecútalo desde la lista de acciones (o asígnale un atajo). Vuelve a ejecutarlo cada vez que edites las notas.",
+		"intro.script2": "Ejecútalo una vez: sigue en segundo plano, siguiendo la pestaña de proyecto activa y tus ediciones.",
+		"intro.script3": "Para iniciarlo junto con REAPER, copia <code>__startup.lua</code> a la carpeta <em>Scripts</em> de REAPER.",
+		"intro.noTrack": "<strong>ENCENDIDO</strong>: el proyecto activo no tiene una pista llamada \"Lyrics\" con notas en los ítems.",
 		"tr.down": "Bajar medio tono",
 		"tr.downTitle": "Bajar medio tono (tecla -)",
 		"tr.up": "Subir medio tono",
@@ -1065,6 +1074,7 @@ const PLAYSTATE_COLORS = [ "#000000", "#00FF00", "#FFFF00", "#000000", "#000000"
 const SCROLL_OPTIONS = { behavior: "smooth", block: "center", inline: "center" };
 
 applyI18n();
+const introHtml = div.innerHTML; // shown again when the active project has no lyrics
 
 if( settings.vignette ) {
 	vignetteElm.style.opacity = "1";
@@ -1110,6 +1120,12 @@ function renderSong() {
 	updateTransposeLabel();
 	if( isMenuOpen() ) buildKeyMenu(); // keys changed with + / - or a new song
 	if( !song.entry ) return;
+	if( song.entry.length === 0 ) { // the script is running, but there is no "Lyrics" track
+		div.innerHTML = introHtml;
+		document.getElementById( "intro-state" ).innerHTML = t( "intro.noTrack" );
+		paragraphs = [];
+		return;
+	}
 
 	const blocks = [];
 	let lastEnd = 0;
@@ -1412,7 +1428,14 @@ function wwr_onreply( results ) {
 				const text = tok[3].replaceAll( /\\n/gm, "\n" ).replaceAll( /\\\\/gm, "\\" );
 				song = JSON.parse( text );
 				songKey = findSongKey( song.entry );
+				const newSong = song.project !== lastProject; // another project tab: start from its own key
+				if( newSong ) {
+					lastProject = song.project;
+					transpose = initialTranspose;
+					closeKeyMenu();
+				}
 				renderSong();
+				if( newSong ) window.scrollTo( 0, 0 );
 			}
 			else if( tok[2] === "host_ips" ) {
 				hostIps = ( tok[3] ?? "" ).split( "," ).filter( Boolean );

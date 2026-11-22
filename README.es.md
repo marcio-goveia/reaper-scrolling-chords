@@ -9,6 +9,7 @@ Basada en los scripts y la interfaz *Scrolling Lyrics / Scrolling Chords* de [X-
 ## Funciones
 
 - **Letra sincronizada:** cada ítem con notas de la pista `Lyrics` se convierte en un bloque, resaltado y centrado mientras suena. Tocar un bloque lleva a REAPER hasta él.
+- **Siempre actualizada:** el script se ejecuta en segundo plano y sigue la pestaña de proyecto activa. Cambiar de pestaña o editar las notas actualiza la página por sí solo, y puede iniciarse junto con REAPER.
 - **Dos formatos de cifrado**, que se pueden mezclar en la misma canción:
   - **Texto con acordes encima de la letra** (el formato tradicional).
   - **[ChordPro](https://www.chordpro.org)**: `[G]Grande é o [C9]Senhor`, con soporte para `{title}`, `{key}`, `{capo}`, comentarios, estribillo/estrofa/puente y tablatura.
@@ -18,7 +19,7 @@ Basada en los scripts y la interfaz *Scrolling Lyrics / Scrolling Chords* de [X-
 - **Modo "solo letra"** para quien canta: tecla `C` o `?nochords`.
 - **Se ajusta a la pantalla:** la fuente se adapta para que quepa la línea más ancha, en vertical u horizontal, sin desalinear los acordes.
 - **Compartir con código QR**, con la IP de la red detectada por el script. Funciona sin internet.
-- **Inglés, portugués y español**, según el idioma del navegador de cada dispositivo. El mensaje del script sigue el paquete de idioma de REAPER o el idioma del sistema.
+- **Inglés, portugués y español**, según el idioma del navegador de cada dispositivo.
 
 ## Archivos
 
@@ -27,6 +28,7 @@ Basada en los scripts y la interfaz *Scrolling Lyrics / Scrolling Chords* de [X-
 | `scripts/Convert Lyrics track items notes for scrolling web browser interface.lua` | Carpeta `Scripts` de REAPER |
 | `web/Scrolling Chords ChordPro.html` | Carpeta `reaper_www_root` de REAPER |
 | `web/qrcode.js` | Carpeta `reaper_www_root`, junto al HTML |
+| `scripts/__startup.lua` | Carpeta `Scripts` de REAPER (opcional: inicia el script junto con REAPER) |
 
 Las carpetas de REAPER están en el directorio de recursos (*Options › Show REAPER resource path*). En Linux es `~/.config/REAPER`.
 
@@ -35,12 +37,13 @@ Las carpetas de REAPER están en el directorio de recursos (*Options › Show RE
 1. Copia los archivos (o crea enlaces simbólicos) en las carpetas de la tabla anterior.
 2. En REAPER, carga el script: *Actions › Show action list › New action › Load ReaScript…*. Si quieres, asígnale un atajo.
 3. En *Options › Preferences › Control/OSC/Web*, añade una **Web browser interface** y elige `Scrolling Chords ChordPro.html` como página.
+4. Opcional: copia `scripts/__startup.lua` a la carpeta `Scripts`, para que el script se inicie cada vez que se abra REAPER. Si ya tienes un `__startup.lua`, pega su código al final del tuyo.
 
 ## Uso
 
 1. Crea una pista llamada **Lyrics** (mayúsculas o minúsculas, da igual).
 2. Para cada parte de la canción, crea un ítem en esa pista y escribe la letra con los acordes en las **notas del ítem**.
-3. Ejecuta el script. Vuelve a ejecutarlo cada vez que edites las notas.
+3. Ejecuta el script una vez (o deja que `__startup.lua` lo inicie). Sigue en segundo plano: cambiar de pestaña de proyecto o editar las notas actualiza la página. Ejecutar la acción de nuevo detiene el script (su botón en la barra de herramientas se ilumina mientras se ejecuta).
 4. Abre la interfaz web en el navegador. Para abrirla en otro dispositivo, usa el botón de compartir (código QR).
 
 ### Ejemplo: formato tradicional
@@ -88,7 +91,7 @@ Na ci[C9]dade do nosso Deus, Seu Santo [Em]monte
 
 ## Cómo funciona
 
-El script Lua lee las notas de los ítems de la pista `Lyrics` y las publica como JSON en el ExtState `XR_Lyrics/json`. También publica las IPs de red del equipo en `XR_Lyrics/host_ips`. La página web pide estos datos a REAPER a través de la API de la interfaz web (`main.js`, que viene con REAPER) y sigue la posición de reproducción para resaltar la parte actual.
+El script Lua se ejecuta en segundo plano. Observa la pestaña de proyecto activa y el historial de deshacer, y vuelve a leer todo una vez por segundo para detectar cambios que no aparecen en el historial. Lee las notas de los ítems de la pista `Lyrics` y las publica como JSON en el ExtState `XR_Lyrics/json`, solo cuando algo cambió. Cuando cambia el proyecto, la página vuelve al tono original. También publica las IPs de red del equipo en `XR_Lyrics/host_ips`. La página web pide estos datos a REAPER a través de la API de la interfaz web (`main.js`, que viene con REAPER) y sigue la posición de reproducción para resaltar la parte actual.
 
 ## Créditos y licencia
 

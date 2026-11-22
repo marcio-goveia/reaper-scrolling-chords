@@ -1,18 +1,25 @@
 --[[
  * ReaScript Name: Convert Lyrics track items notes for scrolling web browser interface
- * About: Use with the X-Raym_Scrolling Lyrics.html web interface.
- *        Looks for a track named "Lyrics" (case-insensitive) that has items with notes,
- *        instead of using the first selected track.
+ * About: Use with the Scrolling Chords ChordPro.html web interface.
+ *        Runs in the background: publishes the item notes of the track named "Lyrics"
+ *        (case-insensitive) of the active project tab, and publishes again whenever the
+ *        tab changes or the project is edited. Run it again to stop it.
+ *        To start it with REAPER, use the __startup.lua that comes with it.
  * Based on: X-Raym_Convert first selected track items notes for scrolling web browser interface.lua (v1.0.1)
  * Original Author: X-Raym
  * Original Repository URI: https://github.com/X-Raym/REAPER-ReaScripts
  * Licence: GPL v3
  * REAPER: 5.0
- * Version: 1.6
+ * Version: 1.7
 --]]
 
 --[[
  * Changelog:
+ * v1.7
+  + Background script: follows the active project tab and republishes when the project changes
+  + Toggle action: running it again stops it (toolbar button state)
+  + JSON includes the project, so the page resets the transposition when the song changes
+  - No alert anymore: without a "Lyrics" track the page shows it in its own language
  * v1.6
   + Alert message in English, Portuguese or Spanish (REAPER language pack, then system language)
  * v1.5
@@ -32,52 +39,8 @@
 --]]
 
 TRACK_NAME = "lyrics" -- compared in lowercase, ignoring leading/trailing spaces
-
-------------------------------------------------------------------
--- Messages in English, Portuguese and Spanish
-------------------------------------------------------------------
-
-MESSAGES = {
-  en = { no_track = 'No track named "Lyrics" with items with notes was found.' },
-  pt = { no_track = 'Nenhuma track chamada "Lyrics" com itens com notas foi encontrada.' },
-  es = { no_track = 'No se encontró ninguna pista llamada "Lyrics" con ítems con notas.' },
-}
-
--- "pt_BR.UTF-8", "Portuguese_Brazil.1252", "Español.ReaperLangPack"... -> "pt" / "es" / nil
-function LangFromName( name )
-  name = ( name or "" ):lower()
-  if name:match( "^pt" ) or name:find( "portug" ) then return "pt" end
-  if name:match( "^es" ) or name:find( "spanish" ) or name:find( "espa" ) then return "es" end
-  if name:match( "^en" ) or name:find( "english" ) then return "en" end
-  return nil
-end
-
-function DetectLang()
-  -- 1. REAPER language pack (Options > Preferences > General > Language)
-  local ini = io.open( reaper.get_ini_file(), "r" )
-  if ini then
-    local content = ini:read( "*a" ) or ""
-    ini:close()
-    local lang = LangFromName( content:match( "\nlangpack=([^\r\n]*)" ) )
-    if lang then return lang end
-  end
-  -- 2. System language: environment (Linux, macOS)...
-  for _, var in ipairs( { "LC_ALL", "LC_MESSAGES", "LANG" } ) do
-    local lang = LangFromName( os.getenv( var ) )
-    if lang then return lang end
-  end
-  -- ... or the system locale (Windows). The locale is restored right away: with a
-  -- Portuguese/Spanish locale, numbers would be written as "1,5" and break the JSON.
-  local current = os.setlocale( nil )
-  local system = os.setlocale( "" )
-  os.setlocale( current )
-  return LangFromName( system ) or "en"
-end
-
-function Msg( key )
-  local lang = DetectLang()
-  return ( MESSAGES[lang] or MESSAGES.en )[key] or MESSAGES.en[key]
-end
+CHECK_EVERY = 1     -- seconds: full re-read, for edits that don't change the project state count
+IPS_EVERY = 60      -- seconds: re-detect the network IPs (Wi-Fi changed...)
 
 ------------------------------------------------------------------
 -- Host IP: the web page can't know the computer's LAN IP when it is opened
@@ -213,9 +176,9 @@ function GetHostIPs()
   end
 end
 
-function PublishHostIPs()
+function HostIPsString()
   local ok, ips = pcall( GetHostIPs )
-  reaper.SetExtState( "XR_Lyrics", "host_ips", ok and table.concat( ips, "," ) or "", false )
+  return ok and table.concat( ips, "," ) or ""
 end
 
 -- Returns a table of {text, pos_start, pos_end} for every item with notes on the track
@@ -234,9 +197,9 @@ function GetItemsWithNotes( track )
 end
 
 -- Finds the first track named "Lyrics" (any case) that has at least one item with notes
-function FindLyricsTrack()
-  for i = 0, reaper.CountTracks( 0 ) - 1 do
-    local track = reaper.GetTrack( 0, i )
+function FindLyricsTrack( proj )
+  for i = 0, reaper.CountTracks( proj ) - 1 do
+    local track = reaper.GetTrack( proj, i )
     local _, name = reaper.GetTrackName( track )
     name = name:match( "^%s*(.-)%s*$" ):lower()
     if name == TRACK_NAME then
@@ -246,41 +209,80 @@ function FindLyricsTrack()
   end
 end
 
-function Main()
-
-    PublishHostIPs() -- even without lyrics, so the page can already be shared
-
-    local track, t = FindLyricsTrack()
-    if not track then
-      reaper.MB( Msg( "no_track" ), "Scrolling Lyrics", 0 )
-      return
-    end
-
-    entries = {}
-    for i, v in ipairs( t ) do
-      local text = v.text:gsub("\r", "")      -- remove carriage returns
-                         :gsub("[ \t]+\n", "\n") -- remove spaces/tabs before each line break
-                         :gsub("[ \t]+$", "")    -- remove spaces/tabs at the end of the text
-                         -- escape backslashes (must come before the other escapes).
-                         -- \u005c instead of \\ because the web page un-escapes "\n" before "\\",
-                         -- which would break a lyric containing a backslash followed by "n".
-                         :gsub("\\", "\\u005c")
-                         :gsub('"', '\\"')       -- escape quotes
-                         :gsub("\n", "<br>")
-                         :gsub("\t", "\\t")      -- escape tabs
-                         :gsub("%c", function( c ) -- escape any other control character
-                           return string.format( "\\u%04x", c:byte() )
-                         end)
-      local line = "\n{\n  \"pos_start\": " .. v.pos_start .. ",\n  \"pos_end\": " .. v.pos_end  .. ",\n  \"text\": \"" .. text .. "\"\n}"
-      table.insert( entries, line )
-    end
-
-    json = "{ \"entry\": [" .. table.concat( entries, "," ) .. "]\n}"
-    reaper.ClearConsole()
-    --reaper.ShowConsoleMsg( json )
-    -- reaper.CF_SetClipboard( json )
-    reaper.SetExtState( "XR_Lyrics", "json", json, false )
-    reaper.SetExtState( "XR_Lyrics", "need_refresh", "true", false )
+-- JSON string content. \ instead of \\ for backslashes because the web page un-escapes
+-- "\n" before "\\", which would break a lyric containing a backslash followed by "n".
+function JsonEscape( str )
+  return ( str:gsub( "\\", "\\u005c" ) -- must come before the other escapes
+              :gsub( '"', '\\"' )
+              :gsub( "\t", "\\t" )
+              :gsub( "%c", function( c ) return string.format( "\\u%04x", c:byte() ) end ) )
 end
 
-reaper.defer(Main)
+-- JSON with the notes of the "Lyrics" track of the project. Without that track, "entry" is empty.
+-- "project" identifies the song: its file, or the tab for a project that was never saved.
+function BuildJSON( proj, proj_file )
+  local _, t = FindLyricsTrack( proj )
+  local entries = {}
+  for _, v in ipairs( t or {} ) do
+    local text = v.text:gsub( "\r", "" )        -- remove carriage returns
+                       :gsub( "[ \t]+\n", "\n" ) -- remove spaces/tabs before each line break
+                       :gsub( "[ \t]+$", "" )    -- remove spaces/tabs at the end of the text
+                       :gsub( "\n", "<br>" )
+    table.insert( entries, "\n{\n  \"pos_start\": " .. v.pos_start .. ",\n  \"pos_end\": " .. v.pos_end
+      .. ",\n  \"text\": \"" .. JsonEscape( text ) .. "\"\n}" )
+  end
+  local project = proj_file ~= "" and proj_file or tostring( proj )
+  return "{ \"project\": \"" .. JsonEscape( project ) .. "\",\n\"entry\": [" .. table.concat( entries, "," ) .. "]\n}"
+end
+
+------------------------------------------------------------------
+-- Background loop
+------------------------------------------------------------------
+
+local last = { json = nil, ips = nil, proj = nil, file = nil, count = nil, check = -math.huge, ips_check = -math.huge }
+
+function Loop()
+  local now = reaper.time_precise()
+  local changed = false
+
+  if now - last.ips_check >= IPS_EVERY then
+    last.ips_check = now
+    local ips = HostIPsString()
+    if ips ~= last.ips then
+      last.ips = ips
+      reaper.SetExtState( "XR_Lyrics", "host_ips", ips, false )
+      changed = true
+    end
+  end
+
+  -- Cheap checks on every cycle: active tab and its undo state count
+  local proj, proj_file = reaper.EnumProjects( -1 )
+  local count = reaper.GetProjectStateChangeCount( proj )
+  if proj ~= last.proj or proj_file ~= last.file or count ~= last.count or now - last.check >= CHECK_EVERY then
+    last.proj, last.file, last.count, last.check = proj, proj_file, count, now
+    local json = BuildJSON( proj, proj_file )
+    if json ~= last.json then
+      last.json = json
+      reaper.SetExtState( "XR_Lyrics", "json", json, false )
+      changed = true
+    end
+  end
+
+  if changed then reaper.SetExtState( "XR_Lyrics", "need_refresh", "true", false ) end
+  reaper.defer( Loop )
+end
+
+-- Toggle state (toolbar button lit while running)
+function SetToggle( state )
+  local _, _, section, cmd = reaper.get_action_context()
+  if cmd and cmd > 0 then
+    reaper.SetToggleCommandState( section, cmd, state )
+    reaper.RefreshToolbar2( section, cmd )
+  end
+end
+
+-- REAPER 7.03+: running the action again stops the script, without asking
+if reaper.set_action_options then reaper.set_action_options( 1 ) end
+SetToggle( 1 )
+reaper.atexit( function() SetToggle( 0 ) end )
+reaper.defer( Loop )
